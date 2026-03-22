@@ -1,0 +1,423 @@
+/* Дисциплина: Генератор отчётов - Стили */
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+  color: #111;
+  background: #fafafa;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 12px;
+  color: #000;
+}
+
+h3 {
+  font-size: 14px;
+  margin: 8px 0;
+  color: #333;
+}
+
+label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: #444;
+  font-weight: 500;
+}
+
+input[type=date],
+input[type=number],
+input[type=text],
+textarea,
+select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+input[type=date]:focus,
+input[type=number]:focus,
+input[type=text]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+}
+
+textarea {
+  min-height: 100px;
+  font-family: "Courier New", monospace;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+button {
+  padding: 8px 14px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+button:active {
+  background: #eee;
+}
+
+button.primary {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+button.primary:hover {
+  background: #333;
+  border-color: #333;
+}
+
+button.small {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-color: #ddd;
+}
+
+input[type=range] {
+  width: 100%;
+  cursor: pointer;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.friction-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px;
+  background: #f0f0f0;
+  border-radius: 6px;
+}
+
+.friction-block label {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.friction-block input[type=range] {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* Meta Info Box */
+.meta {
+  margin: 14px 0;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.meta > div {
+  margin: 6px 0;
+}
+
+.meta .small {
+  color: #666;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 6px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.stat-item strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #111;
+}
+
+/* Tasks List */
+#tasksList {
+  margin: 16px 0;
+}
+
+.section {
+  margin: 12px 0 8px;
+}
+
+.section h3 {
+  padding: 4px 0;
+  border-bottom: 2px solid #ddd;
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin: 4px 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.task:hover {
+  border-color: #bbb;
+  background: #fafafa;
+}
+
+.task.done {
+  background: #f0f8f0;
+  border-color: #90ee90;
+}
+
+.task .toggle {
+  flex-shrink: 0;
+  min-width: 40px;
+  padding: 4px 8px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.task.done .toggle {
+  background: #4a90e2;
+  color: #fff;
+  border-color: #4a90e2;
+}
+
+.task-text {
+  flex: 1;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.habit-from-db {
+  background: #f0f8ff !important;
+  border-color: #4a90e2 !important;
+}
+
+.habit-controls {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.habit-controls button {
+  padding: 4px 6px;
+}
+
+.streak-fire {
+  color: #ff6b35;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+/* Report Output */
+.reportOut {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  padding: 14px;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #222;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Footer Actions */
+.footer-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.footer-actions button {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Utility Classes */
+.small {
+  font-size: 12px;
+  color: #666;
+}
+
+.inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.state-desc {
+  font-size: 12px;
+  color: #444;
+  margin-top: 6px;
+  padding: 8px;
+  background: #f9f9f9;
+  border-left: 3px solid #4a90e2;
+  border-radius: 4px;
+}
+
+/* Modal Dialog */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 450px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.modal-content label {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.modal-content input[type=text],
+.modal-content select {
+  margin-bottom: 10px;
+}
+
+.habit-option {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  margin: 4px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #fff;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.habit-option:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+.habit-option.active {
+  background: #4a90e2;
+  color: #fff;
+  border-color: #4a90e2;
+}
+
+.category-header {
+  font-weight: 600;
+  margin: 10px 0 6px;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  body {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .task {
+    flex-wrap: wrap;
+  }
+
+  .habit-controls {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .footer-actions {
+    flex-direction: column;
+  }
+
+  .footer-actions button {
+    flex: none;
+    width: 100%;
+  }
+}
