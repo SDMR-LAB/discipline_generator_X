@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Портативный генератор отчётов</title>
+  <style>
+    /* простой мобильный дизайн, подходит для iPhone XR */
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:12px;background:#f7f7f8;color:#222}
+    .container{max-width:500px;margin:0 auto}
+    h1{font-size:1.4em;margin-bottom:8px}
+    label{display:block;margin-top:8px;font-size:0.9em}
+    input[type="number"], input[type="date"], textarea{width:100%;padding:6px;box-sizing:border-box;margin-top:2px}
+    textarea{height:140px}
+    button{padding:8px 12px;margin-top:8px;width:100%;font-size:1em}
+    #tasksList{margin-top:12px}
+    .task{display:flex;justify-content:space-between;align-items:center;padding:6px;border-bottom:1px solid #ccc}
+    .task.completed .name{text-decoration:line-through;color:#666}
+    .name{flex:1;word-break:break-word}
+    #reportOutput{white-space:pre-wrap;background:#fff;padding:8px;border:1px solid #ccc;margin-top:12px;min-height:120px}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div data-include="/static/includes/header.html"></div>
+  <h1>Портативный отчёт</h1>
+  <p>Заполните список действий, нажмите «Разобрать». Сохраните результат кнопкой «Скачать отчёт». Затем можно открыть файл на компьютере и вставить содержимое в основной генератор.</p>
+
+  <label for="lastDay">Номер последнего дня</label>
+  <input id="lastDay" type="number" value="0" />
+  <label for="lastDate">Дата последнего дня</label>
+  <input id="lastDate" type="date" value="" />
+
+  <label for="tasksInput">Список привычек / задач</label>
+  <textarea id="tasksInput" placeholder="Список в том же формате, что и на основном генераторе"></textarea>
+
+  <button id="parseBtn">Разобрать и показать</button>
+
+  <button id="sampleBtn">Загрузить пример</button>
+
+  <div id="tasksList"></div>
+
+  <button id="downloadReport">Скачать отчёт</button>
+
+  <div id="reportOutput"></div>
+
+  <div data-include="/static/includes/footer.html"></div>
+</div>
+
+<!-- include-loader загрузит portable script -->
+<script src="/static/include-loader.js" data-scripts="/static/portable_report.js"></script>
+</body>
+</html>
