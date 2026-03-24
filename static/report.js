@@ -45,6 +45,32 @@ function calculateTotalStats(parsed, friction = 1) {
   return totals;
 }
 
+function calculateStatSum(stats) {
+  if (!stats) return 0;
+  const keys = ["I", "S", "W", "E", "C", "H"];
+  return keys.reduce((acc, k) => acc + (Number(stats[k]) || 0), 0);
+}
+
+function calculateImprovementPercent(totals, baseTotals) {
+  const dailySum = calculateStatSum(totals);
+  if (!baseTotals) return dailySum;
+  const baseSum = calculateStatSum(baseTotals);
+  if (baseSum === 0) return dailySum;
+  return (dailySum / baseSum) * 100;
+}
+
+function formatStreaksSummary() {
+  const active = Object.entries(streaksData)
+    .filter(([_id, s]) => s.current > 0)
+    .map(([id, s]) => {
+      const habit = habitsCatalog.find(h => Number(h.id) === Number(id));
+      const name = habit ? habit.name : `habit#${id}`;
+      return `${name} 🔥${s.current}`;
+    });
+
+  return active.length ? active.join(', ') : 'нет активных стриков';
+}
+
 function renderTotalStats(totals) {
   const el = document.getElementById("totalStats");
   if (!el) return;
@@ -128,11 +154,75 @@ async function loadDatesFromDB() {
   try {
     const data = await fetchAPI("/api/stats/period?period=all");
     console.log("loadDatesFromDB: stats response:", data);
-    const dates = data.days_data.map(d => d.date).sort().reverse();
+
+    if (data.stats) {
+      allTimeTotals = {
+        I: Number(data.stats.sum_i || 0),
+        S: Number(data.stats.sum_s || 0),
+        W: Number(data.stats.sum_w || 0),
+        E: Number(data.stats.sum_e || 0),
+        C: Number(data.stats.sum_c || 0),
+        H: Number(data.stats.sum_h || 0),
+        ST: Number(data.stats.sum_st || 0),
+        $: Number(data.stats.sum_money || 0)
+      };
+    }
+
+    const dates = (data.days_data || []).map(d => d.date).sort().reverse();
     console.log("loadDatesFromDB: dates loaded:", dates);
     elements.dbDateSelect.innerHTML = "<option value=\"\">Выберите дату</option>" +
       dates.map(d => `<option value="${d}">${d}</option>`).join("");
+
+    updateReportOutput();
   } catch (e) { console.error("loadDatesFromDB", e); }
+}
+
+async function loadPeriodStats(period) {
+  try {
+    const data = await fetchAPI(`/api/stats/period?period=${period}`);
+    displayPeriodStats(data, period);
+    if (period === 'all' && data.stats) {
+      allTimeTotals = {
+        I: Number(data.stats.sum_i || 0),
+        S: Number(data.stats.sum_s || 0),
+        W: Number(data.stats.sum_w || 0),
+        E: Number(data.stats.sum_e || 0),
+        C: Number(data.stats.sum_c || 0),
+        H: Number(data.stats.sum_h || 0),
+        ST: Number(data.stats.sum_st || 0),
+        $: Number(data.stats.sum_money || 0)
+      };
+      updateReportOutput();
+    }
+  } catch (e) {
+    console.error('loadPeriodStats', e);
+  }
+}
+
+function displayPeriodStats(data, period) {
+  const container = document.getElementById('periodStatsDisplay');
+  if (!container) return;
+  const periodNames = { week: 'неделю', month: 'месяц', all: 'все время' };
+  let html = `<strong>За ${periodNames[period]}:</strong> `;
+  if (data.stats) {
+    html += `${data.stats.days_count || 0} дней, `;
+    html += `I:${Number(data.stats.avg_i || 0).toFixed(2)} `;
+    html += `S:${Number(data.stats.avg_s || 0).toFixed(2)} `;
+    html += `W:${Number(data.stats.avg_w || 0).toFixed(2)}`;
+  } else {
+    html += 'нет данных';
+  }
+  if (data.comparison) {
+    html += '<br>Сравнение: ';
+    const changes = [];
+    Object.keys(data.comparison).forEach(key => {
+      if (data.comparison[key] !== '→') {
+        changes.push(`${key}${data.comparison[key]}`);
+      }
+    });
+    html += changes.length > 0 ? changes.join(' ') : 'без изменений';
+  }
+  container.innerHTML = html;
 }
 
 async function loadDayFromDB() {
@@ -166,12 +256,15 @@ async function loadDayFromDB() {
     
     elements.tasksInput.value = text;
     elements.reportDateEl.value = date;
+    elements.lastDateEl.value = date;
+    elements.lastDayEl.value = day.day_number || elements.lastDayEl.value || "0";
     elements.frictionIndex.value = friction;
     elements.frictionValue.textContent = friction;
     elements.thoughtsInput.value = day.thoughts || "";
     elements.stateSelect.value = day.state || "WORK";
-    
+
     parseTextInput();
+    renderMeta();
     console.log("loadDayFromDB: day loaded successfully");
   } catch (e) { console.error("loadDayFromDB:", e); alert("Ошибка: " + e.message); }
 }
@@ -348,21 +441,31 @@ function renderTasks() {
   });
 }
 
+function computeDayNumber() {
+  const reportDate = elements.reportDateEl.value ? new Date(elements.reportDateEl.value) : new Date();
+  const lastDateVal = elements.lastDateEl.value ? new Date(elements.lastDateEl.value) : null;
+  const lastDayVal = parseInt(elements.lastDayEl.value, 10) || 0;
+  if (lastDateVal) {
+    return lastDayVal + daysBetween(lastDateVal, reportDate);
+  }
+  return lastDayVal;
+}
+
 function renderMeta() {
   const systemToday = new Date();
   elements.todayDisplay.textContent = toISODate(systemToday);
 
   const reportDate = elements.reportDateEl.value ? new Date(elements.reportDateEl.value) : new Date();
   const lastDateVal = elements.lastDateEl.value ? new Date(elements.lastDateEl.value) : null;
-  const lastDayVal = parseInt(elements.lastDayEl.value, 10) || 0;
+  const dayNumber = computeDayNumber();
 
   if (lastDateVal) {
     const diff = daysBetween(lastDateVal, reportDate);
     elements.diffDaysEl.textContent = diff;
-    elements.currentDayDisplay.textContent = String(lastDayVal + diff);
+    elements.currentDayDisplay.textContent = String(dayNumber);
   } else {
     elements.diffDaysEl.textContent = "—";
-    elements.currentDayDisplay.textContent = String(lastDayVal);
+    elements.currentDayDisplay.textContent = String(dayNumber);
   }
 
   let total = 0, completed = 0;
@@ -387,12 +490,15 @@ function updateReportOutput() {
   const friction = parseInt(elements.frictionIndex.value) || 1;
   const totals = calculateTotalStats(parsed, friction);
 
-  let report = `=== ОТЧЁТ ДИСЦИПЛИНЫ ===\n\n`;
-  report += `Дата: ${elements.reportDateEl.value || toISODate(new Date())}\n`;
-  report += `День: ${elements.currentDayDisplay.textContent}\n`;
-  report += `Трение: ${friction}/10\n`;
-  report += `Статус: ${elements.stateSelect.value}\n`;
-  report += `Выполнено: ${elements.completedCount.textContent}/${elements.totalCount.textContent}\n`;
+  let report = `✨🎉 === ОТЧЁТ ДИСЦИПЛИНЫ === 🎉✨\n\n`;
+  report += `📅 Дата: ${elements.reportDateEl.value || toISODate(new Date())}\n`;
+  report += `📈 День: ${elements.currentDayDisplay.textContent}\n`;
+  report += `⚙️ Трение: ${friction}/10\n`;
+  report += `🧾 Статус: ${elements.stateSelect.value}\n`;
+  report += `✅ Выполнено: ${elements.completedCount.textContent}/${elements.totalCount.textContent} (${elements.percentDone.textContent})\n`;
+  report += `🔥 Стрики: ${formatStreaksSummary()}\n`;
+  const dayNumber = computeDayNumber();
+
   report += `\n=== ХАРАКТЕРИСТИКИ ===\n`;
   const stats = ["I", "S", "W", "E", "C", "H", "ST", "$"];
   stats.forEach(s => {
@@ -400,6 +506,21 @@ function updateReportOutput() {
     const allTime = allTimeTotals ? allTimeTotals[s].toFixed(2) : "—";
     report += `${s}: ${val} (всего: ${allTime})\n`;
   });
+
+  const dailySum = calculateStatSum(totals);
+  const overallPercent = calculateImprovementPercent(totals, allTimeTotals);
+
+  report += `\n💪 Я стал лучше на +%${dailySum.toFixed(2)}\n`;
+  if (allTimeTotals) {
+    const allTimeSum = calculateStatSum(allTimeTotals);
+    const ratio = allTimeSum > 0 ? (dailySum / allTimeSum * 100).toFixed(2) : "—";
+    report += `🌍 Доля в общем прогрессе: ${ratio}% (из +%${allTimeSum.toFixed(2)})\n`;
+  }
+  if (overallPercent !== null && allTimeTotals) {
+    report += `📊 Отношение к суммарному прогрессу: ${overallPercent.toFixed(2)}%\n`;
+  }
+
+  report += `\n📅 ДЕНЬ ДИСЦИПЛИНЫ: ${dayNumber}`;
 
   if (elements.thoughtsInput.value) {
     report += `\n=== КОММЕНТАРИЙ ===\n${elements.thoughtsInput.value}\n`;
@@ -414,7 +535,11 @@ function updateReportOutput() {
     } else if (item.type === "habit") {
       const sign = item.success ? "+" : "-";
       const qty = item.quantity ? ` — ${item.quantity} ${item.unit || ""}` : "";
-      report += `  ${sign} ${item.name}${qty}\n`;
+      const catalogHabit = habitsCatalog.find(h => h.name === item.name && h.category === item.category);
+      const streak = catalogHabit && streaksData[catalogHabit.id] ? streaksData[catalogHabit.id].current : 0;
+      const streakText = streak > 0 ? ` 🔥${streak}` : "";
+      const statusIcon = item.success ? "✅" : "❌";
+      report += `  ${statusIcon} ${sign} ${item.name}${qty}${streakText}\n`;
     }
   });
 
@@ -758,6 +883,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadCombinations();
   await loadStreaks();
   await loadDatesFromDB();
+  await loadPeriodStats('all');
   
   const today = toISODate(new Date());
   if (!elements.reportDateEl.value) {
@@ -765,7 +891,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   
   renderMeta();
-});
+} );
 
 
 
