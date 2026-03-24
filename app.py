@@ -12,6 +12,9 @@ from pages.completions.completion_habits import CompletionHabits
 from pages.habits.model import Habit
 from pages.combinations.model import Combination
 
+# === НОВОЕ: импорт планировщика ===
+from core.planner import register_planner
+
 # Now create the database – tables will be created immediately
 from core.db import Database
 from core.api import register_entity_blueprint
@@ -36,6 +39,9 @@ register_entity_blueprint(app, Combination, db)
 # Register statistics API
 register_stats_api(app, db)
 
+# === НОВОЕ: регистрация планировщика ===
+register_planner(app, db)
+
 # Ensure tables (optional, already done by Database.__init__)
 db.ensure_tables()
 
@@ -43,6 +49,10 @@ db.ensure_tables()
 def report_page():
     """Serve the discipline report generator page"""
     return send_file('static/report.html', mimetype='text/html')
+
+@app.route('/planner')
+def planner_page():
+    return app.send_static_file('planner.html')
 
 @app.route('/')
 def index():
