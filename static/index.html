@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Главная — Статистика дисциплины</title>
+</head>
+<body>
+  <nav class="top-nav">
+    <a href="/">Главная</a>
+    <a href="/report">Отчёт</a>
+    <a href="/planner">Планировщик</a>
+    <a href="/ideas">Идеи</a>
+    <a href="/tasks">Мелкие дела</a>
+  </nav>
+
+  <h1>Дашборд дисциплины</h1>
+  <p class="small">Обзор прогресса, стриков и прогноз на завтра (ML).</p>
+
+  <section class="cards-grid">
+    <article class="card" id="card-total-days">
+      <h3>Дней дисциплины</h3>
+      <div id="totalDaysValue">—</div>
+    </article>
+    <article class="card" id="card-current-streak">
+      <h3>Текущий стрик</h3>
+      <div id="currentStreakValue">—</div>
+    </article>
+    <article class="card" id="card-best-streak">
+      <h3>Макс. стрик</h3>
+      <div id="bestStreakValue">—</div>
+    </article>
+    <article class="card" id="card-average-i">
+      <h3>Средний I (неделя)</h3>
+      <div id="avgIValue">—</div>
+    </article>
+    <article class="card" id="card-average-st">
+      <h3>Средний ST (неделя)</h3>
+      <div id="avgSTValue">—</div>
+    </article>
+    <article class="card" id="card-prediction">
+      <h3>Прогноз ML (ST на завтра)</h3>
+      <div id="predictionValue">—</div>
+    </article>
+    <article class="card" id="card-discipline-counter">
+      <h3>Дисциплинированный счётчик</h3>
+      <div id="disciplineCounterValue">—</div>
+      <div class="progress-bar">
+        <div id="disciplineProgressFill" class="progress-fill"></div>
+      </div>
+      <small id="disciplineProgressText">0/100 дней</small>
+    </article>
+  </section>
+
+  <section class="stat-block">
+    <h2>История за период</h2>
+    <div class="controls" style="margin-bottom:12px;">
+      <button id="btnWeek" class="small">7 дн</button>
+      <button id="btnMonth" class="small">30 дн</button>
+      <button id="btnAll" class="small">Все</button>
+    </div>
+    <pre id="periodJson" style="background:#fff;border:1px solid #ddd;padding:10px;border-radius:6px;overflow:auto;height:240px;"></pre>
+  </section>
+
+  <section class="stat-block">
+    <h2>Сравнение сегодня/вчера</h2>
+    <div id="dailyComparison" class="stats-grid"></div>
+  </section>
+
+  <footer style="margin-top:24px; font-size:13px; color:#555;">Использует API: /api/stats/period, /api/stats/streaks, /api/stats/daily_comparison, /api/stats/ml_predict</footer>
+
+  <script src="/static/index.js"></script>
+</body>
+</html>

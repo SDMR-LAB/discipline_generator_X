@@ -56,8 +56,8 @@ def planner_page():
 
 @app.route('/')
 def index():
-    """Main page - redirect to report"""
-    return send_file('static/report.html', mimetype='text/html')
+    """Main dashboard page"""
+    return send_file('static/index.html', mimetype='text/html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5000)
