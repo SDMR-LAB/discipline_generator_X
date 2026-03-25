@@ -84,6 +84,10 @@ let streaksData = {};
 let parsed = [];
 let allTimeTotals = null;
 
+let currentFinanceData = [];
+let currentBiometricData = { intakes: [], meals: [], measurements: [], activities: [], mental: [] };
+let substancesCatalog = []; // для подстановки названий веществ
+
 const elements = {
   todayDisplay: document.getElementById("todayDisplay"),
   currentDayDisplay: document.getElementById("currentDayDisplay"),
@@ -254,6 +258,10 @@ async function loadDayFromDB() {
       text += `${sign} ${h.name}${quantity} ${stats}\n`;
     }
     
+    currentFinanceData = await loadFinanceData(date);
+    currentBiometricData = await loadBiometricData(date);
+    await loadSubstancesCatalog(); // подгрузим справочник веществ для отображения
+
     elements.tasksInput.value = text;
     elements.reportDateEl.value = date;
     elements.lastDateEl.value = date;
@@ -265,6 +273,7 @@ async function loadDayFromDB() {
 
     parseTextInput();
     renderMeta();
+    await updateReportOutput();
     console.log("loadDayFromDB: day loaded successfully");
   } catch (e) { console.error("loadDayFromDB:", e); alert("Ошибка: " + e.message); }
 }
@@ -486,7 +495,7 @@ function renderMeta() {
   renderTotalStats(totals);
 }
 
-function updateReportOutput() {
+async function updateReportOutput() {
   const friction = parseInt(elements.frictionIndex.value) || 1;
   const totals = calculateTotalStats(parsed, friction);
 
@@ -542,6 +551,93 @@ function updateReportOutput() {
       report += `  ${statusIcon} ${sign} ${item.name}${qty}${streakText}\n`;
     }
   });
+
+  // === ФИНАНСЫ ===
+  if (currentFinanceData && currentFinanceData.length > 0) {
+      report += `\n=== ФИНАНСЫ ===\n`;
+      // Получим категории для подстановки
+      let categories = [];
+      try {
+          const catData = await fetchAPI("/api/finance_categories/list");
+          categories = catData.data;
+      } catch(e) { /* ignore */ }
+      const catMap = {};
+      categories.forEach(c => { catMap[c.id] = c; });
+
+      let incomeSum = 0, expenseSum = 0;
+      for (const tx of currentFinanceData) {
+          const cat = catMap[tx.category_id];
+          const catName = cat ? cat.name : '—';
+          const sign = cat && cat.type === 'income' ? '+' : '-';
+          report += `${sign} ${catName}: ${tx.amount.toFixed(2)}${tx.description ? ` (${tx.description})` : ''}\n`;
+          if (cat && cat.type === 'income') incomeSum += tx.amount;
+          else expenseSum += tx.amount;
+      }
+      report += `Итого: доход ${incomeSum.toFixed(2)}, расход ${expenseSum.toFixed(2)}, чистая прибыль ${(incomeSum - expenseSum).toFixed(2)}\n`;
+  }
+
+  // === ПРИНЯТЫЕ ВЕЩЕСТВА ===
+  if (currentBiometricData.intakes && currentBiometricData.intakes.length > 0) {
+      report += `\n=== ПРИНЯТЫЕ ВЕЩЕСТВА ===\n`;
+      const substanceMap = {};
+      substancesCatalog.forEach(s => { substanceMap[s.id] = s; });
+      for (const intake of currentBiometricData.intakes) {
+          const sub = substanceMap[intake.substance_id];
+          const status = intake.taken ? '✓' : '✗';
+          report += `${sub ? sub.name : `Вещество #${intake.substance_id}`}: ${status}\n`;
+      }
+  }
+
+  // === РАЦИОН ===
+  if (currentBiometricData.meals && currentBiometricData.meals.length > 0) {
+      report += `\n=== РАЦИОН ===\n`;
+      for (const meal of currentBiometricData.meals) {
+          const mealType = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' }[meal.meal_type] || meal.meal_type;
+          report += `${mealType}: ${meal.description || ''}${meal.calories ? ` (${meal.calories} ккал)` : ''}\n`;
+          if (meal.notes) report += `  Примечание: ${meal.notes}\n`;
+      }
+  }
+
+  // === ФИЗИЧЕСКИЕ ИЗМЕРЕНИЯ ===
+  if (currentBiometricData.measurements && currentBiometricData.measurements.length > 0) {
+      report += `\n=== ИЗМЕРЕНИЯ ===\n`;
+      for (const m of currentBiometricData.measurements) {
+          const parts = [];
+          if (m.weight) parts.push(`Вес: ${m.weight} кг`);
+          if (m.body_fat_percent) parts.push(`% жира: ${m.body_fat_percent}`);
+          if (m.muscle_mass) parts.push(`Мышечная масса: ${m.muscle_mass} кг`);
+          if (m.heart_rate) parts.push(`Пульс: ${m.heart_rate}`);
+          if (m.blood_pressure_systolic && m.blood_pressure_diastolic) parts.push(`Давление: ${m.blood_pressure_systolic}/${m.blood_pressure_diastolic}`);
+          report += parts.join(', ') + '\n';
+          if (m.notes) report += `  Примечание: ${m.notes}\n`;
+      }
+  }
+
+  // === ФИЗИЧЕСКАЯ АКТИВНОСТЬ ===
+  if (currentBiometricData.activities && currentBiometricData.activities.length > 0) {
+      report += `\n=== ФИЗИЧЕСКАЯ АКТИВНОСТЬ ===\n`;
+      for (const a of currentBiometricData.activities) {
+          report += `${a.activity_type}: ${a.duration_minutes} мин${a.intensity ? ` (интенсивность ${a.intensity}/10)` : ''}\n`;
+          if (a.notes) report += `  Примечание: ${a.notes}\n`;
+      }
+  }
+
+  // === МЕНТАЛЬНЫЕ ПОКАЗАТЕЛИ ===
+  if (currentBiometricData.mental && currentBiometricData.mental.length > 0) {
+      report += `\n=== МЕНТАЛЬНЫЕ ПОКАЗАТЕЛИ ===\n`;
+      for (const m of currentBiometricData.mental) {
+          const fields = [];
+          if (m.focus) fields.push(`Фокус: ${m.focus}/10`);
+          if (m.attention) fields.push(`Внимание: ${m.attention}/10`);
+          if (m.thinking_speed) fields.push(`Быстрота мышления: ${m.thinking_speed}/10`);
+          if (m.energy) fields.push(`Энергия: ${m.energy}/10`);
+          if (m.mood) fields.push(`Настроение: ${m.mood}/10`);
+          if (m.thinking_type) fields.push(`Тип мышления: ${m.thinking_type}`);
+          report += fields.join(', ') + '\n';
+          if (m.notes) report += `  Примечание: ${m.notes}\n`;
+      }
+  }
+
 
   elements.reportOutput.textContent = report;
 }
@@ -694,6 +790,41 @@ function loadFromLocalStorage() {
     elements.frictionValue.textContent = data.friction;
   }
   parseTextInput();
+}
+
+async function loadFinanceData(date) {
+    try {
+        const data = await fetchAPI(`/api/finance_transactions/list?date=${date}`);
+        return data.data;
+    } catch (e) {
+        console.warn('Failed to load finance data', e);
+        return [];
+    }
+}
+
+async function loadBiometricData(date) {
+    const result = {};
+    try {
+        result.intakes = (await fetchAPI(`/api/biometric_intake_log/list?date=${date}`)).data;
+        result.meals = (await fetchAPI(`/api/biometric_meals/list?date=${date}`)).data;
+        result.measurements = (await fetchAPI(`/api/biometric_measurements/list?date=${date}`)).data;
+        result.activities = (await fetchAPI(`/api/biometric_physical_activity/list?date=${date}`)).data;
+        result.mental = (await fetchAPI(`/api/biometric_mental_daily/list?date=${date}`)).data;
+        return result;
+    } catch (e) {
+        console.warn('Failed to load biometric data', e);
+        return { intakes: [], meals: [], measurements: [], activities: [], mental: [] };
+    }
+}
+
+async function loadSubstancesCatalog() {
+    try {
+        const data = await fetchAPI("/api/biometric_substances/list");
+        substancesCatalog = data.data;
+    } catch (e) {
+        console.warn("Failed to load substances", e);
+        substancesCatalog = [];
+    }
 }
 
 async function saveToDatabase() {

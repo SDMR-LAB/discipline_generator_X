@@ -13,6 +13,10 @@ from pages.habits.model import Habit
 from pages.combinations.model import Combination
 from pages.ideas.model import Idea
 from pages.ideas.api import register_ideas
+from pages.finance.model import Category, Transaction
+from pages.finance.api import register_finance_api
+from pages.biometric.model import (Substance, IntakeLog, Meal, Measurement, PhysicalActivity, MentalDaily, CognitiveTest)
+from pages.biometric.api import register_biometric_api
 
 # === НОВОЕ: импорт планировщика ===
 from core.planner import register_planner
@@ -38,6 +42,17 @@ register_entity_blueprint(app, CompletionHabits, db)
 register_entity_blueprint(app, Habit, db)
 register_entity_blueprint(app, Combination, db)
 
+# Register entity blueprints
+register_entity_blueprint(app, Category, db)
+register_entity_blueprint(app, Transaction, db)
+register_entity_blueprint(app, Substance, db)
+register_entity_blueprint(app, IntakeLog, db)
+register_entity_blueprint(app, Meal, db)
+register_entity_blueprint(app, Measurement, db)
+register_entity_blueprint(app, PhysicalActivity, db)
+register_entity_blueprint(app, MentalDaily, db)
+register_entity_blueprint(app, CognitiveTest, db)
+
 # Register statistics API
 register_stats_api(app, db)
 
@@ -46,6 +61,19 @@ register_planner(app, db)
 
 # После регистрации остальных сущностей (после register_planner):
 register_ideas(app, db)
+
+# Register custom APIs
+register_finance_api(app, db)
+register_biometric_api(app, db)
+
+# Add routes for static pages
+@app.route('/finance')
+def finance_page():
+    return send_file('static/finance.html', mimetype='text/html')
+
+@app.route('/biometric')
+def biometric_page():
+    return send_file('static/biometric.html', mimetype='text/html')
 
 # Ensure tables (optional, already done by Database.__init__)
 db.ensure_tables()
