@@ -1,5 +1,4 @@
 console.log('[planner.js] loaded');
-alert('JS стартанул');
 
 let currentProject = null;
 
@@ -25,8 +24,6 @@ async function fetchJSON(url, opts) {
 
   return data;
 }
-
-alert('JS начало');
 
 async function loadProjects() {
   try {
@@ -121,8 +118,6 @@ async function loadProject(name){
   }
   renderRoadmap(name, res.data);
 }
-
-alert('JS середина');
 
 function renderRoadmap(project, tasks){
   console.log('renderRoadmap for', project, tasks.length);
@@ -391,7 +386,6 @@ function initCreateTaskForm() {
 
   const newTaskButton = document.getElementById('newTaskButton');
   if (newTaskButton) {
-    alert('debug');
     newTaskButton.onclick = () => {
       const section = document.getElementById('createTaskSection');
       const nameInput = document.getElementById('newTaskNameInput');
@@ -448,9 +442,6 @@ if (document.readyState === 'loading') {
 } else {
   initPlannerUI();
 }
-
-alert('JS конец');
-
 document.getElementById('refreshProjects').addEventListener('click', loadProjects);
 console.log('[planner] script init, starting loadProjects');
 loadProjects();
