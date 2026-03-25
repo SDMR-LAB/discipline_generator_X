@@ -11,6 +11,8 @@ from pages.completions.model import Completion
 from pages.completions.completion_habits import CompletionHabits
 from pages.habits.model import Habit
 from pages.combinations.model import Combination
+from pages.ideas.model import Idea
+from pages.ideas.api import register_ideas
 
 # === НОВОЕ: импорт планировщика ===
 from core.planner import register_planner
@@ -42,6 +44,9 @@ register_stats_api(app, db)
 # === НОВОЕ: регистрация планировщика ===
 register_planner(app, db)
 
+# После регистрации остальных сущностей (после register_planner):
+register_ideas(app, db)
+
 # Ensure tables (optional, already done by Database.__init__)
 db.ensure_tables()
 
@@ -53,6 +58,15 @@ def report_page():
 @app.route('/planner')
 def planner_page():
     return app.send_static_file('planner.html')
+
+# Добавьте маршруты для страниц:
+@app.route('/ideas')
+def ideas_page():
+    return send_file('static/ideas.html', mimetype='text/html')
+
+@app.route('/tasks')
+def tasks_page():
+    return send_file('static/tasks.html', mimetype='text/html')
 
 @app.route('/')
 def index():
