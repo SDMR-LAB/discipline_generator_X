@@ -23,7 +23,9 @@
     <main class="main">
       <header class="main-header">
         <h1 id="projectTitle">Выберите проект</h1>
-        <!-- Навигация вынесена в includes/header.html -->
+        <div class="header-actions">
+          <button id="newTaskButton" style="margin-left: 12px;">+ Новая задача</button>
+        </div>
       </header>
       <div id="roadmapContainer">
         <div id="progressBar" class="progress"><div id="progressFill"></div></div>
@@ -60,7 +62,6 @@
     </main>
   </div>
 
-  <!-- include-loader загрузит partials и затем подгрузит скрипт страницы -->
   <script src="/static/include-loader.js" data-scripts="/static/planner.js"></script>
   <div data-include="/static/includes/footer.html"></div>
 </body>
