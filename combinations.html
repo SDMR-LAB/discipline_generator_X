@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Настройка связей между модулями</title>
+  <style>
+    .combinations-page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .tabs-panel {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .tab-btn {
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      color: #4a90e2;
+      border-bottom-color: #4a90e2;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .link-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .link-card-info {
+      flex: 1;
+    }
+
+    .link-card-info h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #111;
+    }
+
+    .link-card-info p {
+      margin: 0;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .bonus-badges {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .bonus-badge {
+      background: #f0f0f0;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .bonus-badge.positive {
+      color: #2ecc71;
+      background: #f0fdf4;
+    }
+
+    .form-section {
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .bonuses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .bonus-input {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bonus-input label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #666;
+      margin-bottom: 2px;
+    }
+
+    .bonus-input input {
+      padding: 4px;
+      font-size: 12px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #f5f5f5;
+      border-color: #bbb;
+    }
+
+    .btn.primary {
+      background: #4a90e2;
+      color: #fff;
+      border-color: #4a90e2;
+    }
+
+    .btn.primary:hover {
+      background: #2c5dcf;
+    }
+
+    .btn.danger {
+      color: #e74c3c;
+      border-color: #e74c3c;
+    }
+
+    .btn.danger:hover {
+      background: #fee;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: #999;
+    }
+
+    .info-box {
+      background: #f0f8ff;
+      border-left: 3px solid #4a90e2;
+      padding: 12px;
+      margin-bottom: 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div data-include="/static/includes/header.html"></div>
+  
+  <div class="main-content">
+    <h1>Настройка связей между модулями</h1>
+    
+    <div class="tabs-panel">
+      <button class="tab-btn active" data-tab="habit-habit">Привычка ↔ Привычка</button>
+      <button class="tab-btn" data-tab="habit-biometric">Привычка ↔ Биометрика</button>
+      <button class="tab-btn" data-tab="habit-finance">Привычка ↔ Финансы</button>
+      <button class="tab-btn" data-tab="biometric-auto">Автобонусы от биометрики</button>
+    </div>
+
+  <!-- ===== TAB 1: Привычка ↔ Привычка ===== -->
+  <div class="tab-content active" id="tab-habit-habit">
+    <div class="info-box">
+      ✓ Синхронизация привычек (например, "упражнения" + "здоровое питание" = дополнительный бонус)
+    </div>
+
+    <div class="form-section">
+      <h3>Создать сочетание привычек</h3>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>Название сочетания</label>
+          <input type="text" id="combo-name" placeholder="например, Здоровый образ жизни">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Привычка A</label>
+          <select id="combo-habit-a">
+            <option value="">Выберите привычку...</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Привычка B</label>
+          <select id="combo-habit-b">
+            <option value="">Выберите привычку...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bonuses-grid" id="combo-bonuses">
+        <div class="bonus-input">
+          <label>I</label>
+          <input type="number" id="combo-bonus-i" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>S</label>
+          <input type="number" id="combo-bonus-s" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>W</label>
+          <input type="number" id="combo-bonus-w" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>E</label>
+          <input type="number" id="combo-bonus-e" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>C</label>
+          <input type="number" id="combo-bonus-c" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>H</label>
+          <input type="number" id="combo-bonus-h" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>ST</label>
+          <input type="number" id="combo-bonus-st" step="0.01" value="0">
+        </div>
+        <div class="bonus-input">
+          <label>$</label>
+          <input type="number" id="combo-bonus-money" step="0.01" value="0">
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top: 16px;">
+        <button class="btn primary" id="combo-create-btn">Создать сочетание</button>
+      </div>
+    </div>
+
+    <h3>Существующие сочетания</h3>
+    <div id="habit-habit-list"></div>
+  </div>
+
+    <!-- ===== TAB 2: Привычка ↔ Биометрика ===== -->
+    <div class="tab-content" id="tab-habit-biometric">
+      <div class="info-box">
+        📊 Связываем привычку с биометрикой, чтобы при выполнении одного автоматически засчитывалось в другом.
+        Например: выполнил "прием витаминов" → автоматически +0.1 здоровья к привычке.
+      </div>
+
+      <div class="form-section">
+        <h3>Создать связь: Привычка ↔ Биометрика</h3>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Привычка</label>
+            <select id="hb-habit-id">
+              <option value="">Выберите привычку...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Тип биометрики</label>
+            <select id="hb-biometric-type">
+              <option value="">Выберите тип...</option>
+              <option value="substance">Вещество (таблетка, БАД)</option>
+              <option value="meal">Приём пищи (завтрак, обед и т.д.)</option>
+              <option value="activity">Физическая активность</option>
+              <option value="sleep">Сон</option>
+              <option value="measurement">Измерение (вес, давление)</option>
+            </select>
+          </div>
+          
+      <div class="form-group">
+        <label>ID биометрики (опционально)</label>
+        <input type="number" id="hb-biometric-id" placeholder="для конкретного вещества/активности">
+        <select id="hb-biometric-select" style="margin-top: 8px;">
+          <option value="">Или выберите из списка</option>
+        </select>
+      </div>
+
+        <div class="bonuses-grid" id="hb-bonuses">
+          <div class="bonus-input">
+            <label>I</label>
+            <input type="number" id="hb-bonus-i" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>S</label>
+            <input type="number" id="hb-bonus-s" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>W</label>
+            <input type="number" id="hb-bonus-w" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>E</label>
+            <input type="number" id="hb-bonus-e" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>C</label>
+            <input type="number" id="hb-bonus-c" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>H</label>
+            <input type="number" id="hb-bonus-h" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>ST</label>
+            <input type="number" id="hb-bonus-st" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>$</label>
+            <input type="number" id="hb-bonus-money" step="0.01" value="0">
+          </div>
+        </div>
+
+        <div class="controls" style="margin-top: 16px;">
+          <button class="btn primary" id="hb-create-btn">Создать связь</button>
+        </div>
+      </div>
+
+      <h3>Существующие связи</h3>
+      <div id="habit-biometric-list"></div>
+    </div>
+
+    <!-- ===== TAB 3: Привычка ↔ Финансы ===== -->
+    <div class="tab-content" id="tab-habit-finance">
+      <div class="info-box">
+        💰 Связываем привычку с финансами. Например: если был активный доход > 1000 дня → +0.2 ST для привычки.
+      </div>
+
+      <div class="form-section">
+        <h3>Создать связь: Привычка ↔ Финансы</h3>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Привычка</label>
+            <select id="hf-habit-id">
+              <option value="">Выберите привычку...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Тип финансов</label>
+            <select id="hf-finance-type">
+              <option value="">Выберите тип...</option>
+              <option value="income_active">Активный доход</option>
+              <option value="income_passive">Пассивный доход</option>
+              <option value="expense">Расход</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Категория (опционально)</label>
+            <select id="hf-category-id">
+              <option value="">Любая категория</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Минимальная сумма (пороговое значение)</label>
+            <input type="number" id="hf-threshold" step="0.01" value="0" placeholder="0 = без ограничения">
+          </div>
+        </div>
+
+        <div class="bonuses-grid" id="hf-bonuses">
+          <div class="bonus-input">
+            <label>I</label>
+            <input type="number" id="hf-bonus-i" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>S</label>
+            <input type="number" id="hf-bonus-s" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>W</label>
+            <input type="number" id="hf-bonus-w" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>E</label>
+            <input type="number" id="hf-bonus-e" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>C</label>
+            <input type="number" id="hf-bonus-c" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>H</label>
+            <input type="number" id="hf-bonus-h" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>ST</label>
+            <input type="number" id="hf-bonus-st" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>$</label>
+            <input type="number" id="hf-bonus-money" step="0.01" value="0">
+          </div>
+        </div>
+
+        <div class="controls" style="margin-top: 16px;">
+          <button class="btn primary" id="hf-create-btn">Создать связь</button>
+        </div>
+      </div>
+
+      <h3>Существующие связи</h3>
+      <div id="habit-finance-list"></div>
+    </div>
+
+    <!-- ===== TAB 4: Автобонусы от биометрики ===== -->
+    <div class="tab-content" id="tab-biometric-auto">
+      <div class="info-box">
+        🎯 Настройка автоматического начисления характеристик при выполнении БИОметрики.
+        Например: одна витаминка = +1 ST, одна тренировка = +0.05 ST + 0.05 H
+      </div>
+
+      <div class="form-section">
+        <h3>Создать правило автобонуса</h3>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Тип биометрики</label>
+            <select id="ba-biometric-type">
+              <option value="">Выберите тип...</option>
+              <option value="substance">Вещество (таблетка, БАД)</option>
+              <option value="meal">Приём пищи</option>
+              <option value="activity">Физическая активность</option>
+              <option value="sleep">Сон</option>
+              <option value="measurement">Измерение</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>ID биометрики (опционально)</label>
+            <input type="number" id="ba-biometric-id" placeholder="для конкретного элемента">
+          </div>
+
+          <div class="form-group">
+            <label>Описание</label>
+            <input type="text" id="ba-description" placeholder="Например: витаминка D, утренняя зарядка...">
+          </div>
+        </div>
+
+        <div class="bonuses-grid" id="ba-bonuses">
+          <div class="bonus-input">
+            <label>I</label>
+            <input type="number" id="ba-bonus-i" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>S</label>
+            <input type="number" id="ba-bonus-s" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>W</label>
+            <input type="number" id="ba-bonus-w" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>E</label>
+            <input type="number" id="ba-bonus-e" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>C</label>
+            <input type="number" id="ba-bonus-c" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>H</label>
+            <input type="number" id="ba-bonus-h" step="0.01" value="0">
+          </div>
+          <div class="bonus-input">
+            <label>ST</label>
+            <input type="number" id="ba-bonus-st" step="0.01" value="1">
+          </div>
+          <div class="bonus-input">
+            <label>$</label>
+            <input type="number" id="ba-bonus-money" step="0.01" value="0">
+          </div>
+        </div>
+
+        <div class="controls" style="margin-top: 16px;">
+          <button class="btn primary" id="ba-create-btn">Создать правило</button>
+        </div>
+      </div>
+
+      <h3>Существующие автобонусы</h3>
+      <div id="biometric-characteristics-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/include-loader.js" data-scripts="/static/combinations.js"></script>
+  <div data-include="/static/includes/footer.html"></div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Мелкие дела — Планировщик</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/tasks.css">
+</head>
+<body>
+  <div data-include="/static/includes/header.html"></div>
+  <div class="container">
+    <header>
+      <h1>Примитивный планировщик мелких дел</h1>
+      <!-- Навигация вынесена в includes/header.html -->
+      <nav style="display:none"></nav>
+    </header>
+
+    <section id="newTaskSection">
+      <input id="newTaskName" placeholder="Название задачи" />
+      <button id="addTaskBtn">Добавить</button>
+    </section>
+
+    <ul id="tasksList"></ul>
+
+    <aside id="taskDetail" class="detail" style="display:none">
+      <h2 id="detailName"></h2>
+      <textarea id="detailContent" placeholder="Описание или заметки"></textarea>
+      <div class="deltas">
+        <input id="dI" placeholder="I" />
+        <input id="dS" placeholder="S" />
+        <input id="dW" placeholder="W" />
+        <input id="dE" placeholder="E" />
+        <input id="dC" placeholder="C" />
+        <input id="dH" placeholder="H" />
+        <input id="dST" placeholder="ST" />
+        <input id="d$" placeholder="$" />
+      </div>
+      <div class="controls">
+        <button id="markDoneBtn">Отметить выполнено</button>
+        <button id="saveDetailBtn">Сохранить</button>
+        <button id="deleteBtn">Удалить</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- include-loader сначала подгрузит partials, затем загрузит tasks.js -->
+  <script src="/static/include-loader.js" data-scripts="/static/tasks.js"></script>
+  <div data-include="/static/includes/footer.html"></div>
+</body>
+</html>

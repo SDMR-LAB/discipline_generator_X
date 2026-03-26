@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Биометрика | Планировщик</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/biometric.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div data-include="/static/includes/header.html"></div>
+    <div class="container">
+        <h1>Биометрика</h1>
+
+        <!-- Табы -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="substances">Вещества</button>
+            <button class="tab-btn" data-tab="meals">Рацион</button>
+            <button class="tab-btn" data-tab="physical">Физические показатели</button>
+            <button class="tab-btn" data-tab="mental">Ментальные показатели</button>
+            <button class="tab-btn" data-tab="cognitive">Когнитивные тесты</button>
+        </div>
+
+        <!-- Tab: Вещества -->
+        <div id="substancesTab" class="tab-content active">
+            <div class="toolbar">
+                <button id="addSubstanceBtn">➕ Добавить вещество</button>
+            </div>
+            <h3>Журнал приёма</h3>
+            <div class="intake-log" id="intakeLog">
+                <!-- будет заполнено JS -->
+            </div>
+            <h3>Список веществ</h3>
+            <table id="substancesTable">
+                <thead><tr><th>Название</th><th>Дозировка</th><th>Периодичность</th><th>Время приёма</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Tab: Рацион -->
+        <div id="mealsTab" class="tab-content">
+            <div class="toolbar">
+                <button id="addMealBtn">➕ Добавить приём пищи</button>
+            </div>
+            <table id="mealsTable">
+                <thead><tr><th>Дата</th><th>Приём</th><th>Описание</th><th>Калории</th><th>Примечания</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Tab: Физические показатели -->
+        <div id="physicalTab" class="tab-content">
+            <div class="toolbar">
+                <button id="addMeasurementBtn">➕ Добавить измерение</button>
+                <button id="addActivityBtn">➕ Добавить активность</button>
+            </div>
+            <div class="charts-row">
+                <div class="chart-container">
+                    <canvas id="weightChart" width="400" height="250"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="activityChart" width="400" height="250"></canvas>
+                </div>
+            </div>
+            <h3>Измерения</h3>
+            <table id="measurementsTable">
+                <thead><tr><th>Дата</th><th>Вес (кг)</th><th>% жира</th><th>Мышечная масса</th><th>Пульс</th><th>Давление</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <h3>Физическая активность</h3>
+            <table id="activitiesTable">
+                <thead><tr><th>Дата</th><th>Вид</th><th>Длительность (мин)</th><th>Интенсивность</th><th>Примечания</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Tab: Ментальные показатели -->
+        <div id="mentalTab" class="tab-content">
+            <div class="toolbar">
+                <button id="addMentalEntryBtn">➕ Добавить запись</button>
+            </div>
+            <div class="charts-row">
+                <div class="chart-container">
+                    <canvas id="mentalChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+            <table id="mentalTable">
+                <thead><tr><th>Дата</th><th>Фокус</th><th>Внимание</th><th>Быстрота мышления</th><th>Энергия</th><th>Настроение</th><th>Тип мышления</th><th>Примечания</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Tab: Когнитивные тесты -->
+        <div id="cognitiveTab" class="tab-content">
+            <div class="toolbar">
+                <button id="addTestBtn">➕ Добавить тест</button>
+            </div>
+            <table id="cognitiveTable">
+                <thead><tr><th>Дата</th><th>Название теста</th><th>Результат</th><th>Примечания</th><th>Действия</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Вещество -->
+    <div id="substanceModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать вещество</h3>
+            <form id="substanceForm">
+                <input type="hidden" id="substanceId">
+                <div class="form-group">
+                    <label for="substanceName">Название *</label>
+                    <input type="text" id="substanceName" required>
+                </div>
+                <div class="form-group">
+                    <label for="substanceDosage">Дозировка</label>
+                    <input type="text" id="substanceDosage" placeholder="например, 1000мг">
+                </div>
+                <div class="form-group">
+                    <label for="substanceFrequency">Периодичность</label>
+                    <input type="text" id="substanceFrequency" placeholder="например, ежедневно, раз в 3 дня">
+                </div>
+                <div class="form-group">
+                    <label for="substanceTime">Время приёма</label>
+                    <input type="text" id="substanceTime" placeholder="например, утром, после еды">
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Приём пищи -->
+    <div id="mealModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать приём пищи</h3>
+            <form id="mealForm">
+                <input type="hidden" id="mealId">
+                <div class="form-group">
+                    <label for="mealDate">Дата *</label>
+                    <input type="date" id="mealDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="mealType">Тип приёма *</label>
+                    <select id="mealType" required>
+                        <option value="breakfast">Завтрак</option>
+                        <option value="lunch">Обед</option>
+                        <option value="dinner">Ужин</option>
+                        <option value="snack">Перекус</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mealDesc">Описание</label>
+                    <textarea id="mealDesc" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="mealCalories">Калории (ккал)</label>
+                    <input type="number" id="mealCalories" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="mealNotes">Примечания</label>
+                    <textarea id="mealNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Измерение -->
+    <div id="measurementModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать измерение</h3>
+            <form id="measurementForm">
+                <input type="hidden" id="measurementId">
+                <div class="form-group">
+                    <label for="measDate">Дата *</label>
+                    <input type="date" id="measDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="measWeight">Вес (кг)</label>
+                    <input type="number" id="measWeight" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measFat">% жира</label>
+                    <input type="number" id="measFat" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measMuscle">Мышечная масса (кг)</label>
+                    <input type="number" id="measMuscle" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measChest">Обхват груди (см)</label>
+                    <input type="number" id="measChest" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measWaist">Обхват талии (см)</label>
+                    <input type="number" id="measWaist" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measHips">Обхват бёдер (см)</label>
+                    <input type="number" id="measHips" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="measHeartRate">Пульс (уд/мин)</label>
+                    <input type="number" id="measHeartRate">
+                </div>
+                <div class="form-group">
+                    <label for="measBpSystolic">Давление (систолическое)</label>
+                    <input type="number" id="measBpSystolic">
+                </div>
+                <div class="form-group">
+                    <label for="measBpDiastolic">Давление (диастолическое)</label>
+                    <input type="number" id="measBpDiastolic">
+                </div>
+                <div class="form-group">
+                    <label for="measNotes">Примечания</label>
+                    <textarea id="measNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Физическая активность -->
+    <div id="activityModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать активность</h3>
+            <form id="activityForm">
+                <input type="hidden" id="activityId">
+                <div class="form-group">
+                    <label for="actDate">Дата *</label>
+                    <input type="date" id="actDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="actType">Вид активности *</label>
+                    <input type="text" id="actType" required placeholder="бег, йога, силовая...">
+                </div>
+                <div class="form-group">
+                    <label for="actDuration">Длительность (мин) *</label>
+                    <input type="number" id="actDuration" required>
+                </div>
+                <div class="form-group">
+                    <label for="actIntensity">Интенсивность (1-10)</label>
+                    <input type="number" id="actIntensity" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="actNotes">Примечания</label>
+                    <textarea id="actNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Ментальные показатели -->
+    <div id="mentalModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать ментальные показатели</h3>
+            <form id="mentalForm">
+                <input type="hidden" id="mentalId">
+                <div class="form-group">
+                    <label for="mentalDate">Дата *</label>
+                    <input type="date" id="mentalDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="mentalFocus">Фокус (1-10)</label>
+                    <input type="number" id="mentalFocus" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="mentalAttention">Внимание (1-10)</label>
+                    <input type="number" id="mentalAttention" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="mentalThinkingSpeed">Быстрота мышления (1-10)</label>
+                    <input type="number" id="mentalThinkingSpeed" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="mentalEnergy">Энергия (1-10)</label>
+                    <input type="number" id="mentalEnergy" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="mentalMood">Настроение (1-10)</label>
+                    <input type="number" id="mentalMood" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="mentalThinkingType">Тип мышления</label>
+                    <input type="text" id="mentalThinkingType" placeholder="творческий, аналитический, смешанный...">
+                </div>
+                <div class="form-group">
+                    <label for="mentalNotes">Примечания</label>
+                    <textarea id="mentalNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Когнитивный тест -->
+    <div id="testModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Добавить/Редактировать результат теста</h3>
+            <form id="testForm">
+                <input type="hidden" id="testId">
+                <div class="form-group">
+                    <label for="testDate">Дата *</label>
+                    <input type="date" id="testDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="testName">Название теста *</label>
+                    <input type="text" id="testName" required>
+                </div>
+                <div class="form-group">
+                    <label for="testScore">Результат *</label>
+                    <input type="number" id="testScore" step="any" required>
+                </div>
+                <div class="form-group">
+                    <label for="testNotes">Примечания</label>
+                    <textarea id="testNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" class="closeModalBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/biometric.js"></script>
+    <script src="/static/include-loader.js" data-scripts=""></script>
+    <div data-include="/static/includes/footer.html"></div>
+</body>
+</html>

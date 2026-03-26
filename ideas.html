@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Идеи — Планировщик</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/ideas.css">
+</head>
+<body>
+  <div data-include="/static/includes/header.html"></div>
+  <div class="container">
+    <header>
+      <h1>Блокнот идей</h1>
+    </header>
+
+    <section id="newIdeaSection">
+      <input id="newIdeaTitle" placeholder="Название идеи" />
+      <button id="addIdeaBtn">Добавить</button>
+    </section>
+
+    <ul id="ideasList"></ul>
+
+    <aside id="ideaDetail" class="detail" style="display:none">
+      <h2><input type="text" id="detailTitle" placeholder="Название" style="width:100%;" /></h2>
+      <textarea id="detailDescription" placeholder="Описание идеи" style="width:100%; height:80px; margin-bottom:8px;"></textarea>
+      
+      <label>Тип идеи:</label>
+      <div>
+        <label><input type="radio" name="ideaType" value="own" id="typeOwn" checked /> Собственная мысль</label>
+        <label><input type="radio" name="ideaType" value="observation" id="typeObservation" /> Наблюдение</label>
+      </div>
+
+      <label>Источник:</label>
+      <input type="text" id="detailSource" placeholder="Источник (если наблюдение)" disabled />
+
+      <label>Проблемы, которые решает:</label>
+      <textarea id="detailProblems" placeholder="Проблемы"></textarea>
+
+      <label>Что изменит?</label>
+      <textarea id="detailWhatChanges" placeholder="Что изменит внедрение"></textarea>
+
+      <label>Сложность введения:</label>
+      <select id="detailDifficulty">
+        <option value="background">Фоновая (не требует усилий)</option>
+        <option value="initial_control">Первичный контроль</option>
+        <option value="constant_control">Постоянный контроль</option>
+      </select>
+
+      <label>Реалистичность (1-10):</label>
+      <input type="number" id="detailRealism" min="1" max="10" step="1" value="5" />
+
+      <label>Связанные идеи:</label>
+      <div id="relatedCheckboxes" style="max-height:150px; overflow-y:auto; border:1px solid #ccc; padding:4px;"></div>
+
+      <div class="deltas">
+        <input id="dI" placeholder="I" type="number" step="any" />
+        <input id="dS" placeholder="S" type="number" step="any" />
+        <input id="dW" placeholder="W" type="number" step="any" />
+        <input id="dE" placeholder="E" type="number" step="any" />
+        <input id="dC" placeholder="C" type="number" step="any" />
+        <input id="dH" placeholder="H" type="number" step="any" />
+        <input id="dST" placeholder="ST" type="number" step="any" />
+        <input id="d$" placeholder="$" type="number" step="any" />
+      </div>
+
+      <div class="controls">
+        <button id="markDoneBtn">Отметить выполненной</button>
+        <button id="saveDetailBtn">Сохранить</button>
+        <button id="deleteBtn">Удалить</button>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/static/include-loader.js" data-scripts="/static/ideas.js"></script>
+  <div data-include="/static/includes/footer.html"></div>
+</body>
+</html>
