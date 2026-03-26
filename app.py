@@ -21,6 +21,10 @@ from pages.biometric.api import register_biometric_api
 # === НОВОЕ: импорт планировщика ===
 from core.planner import register_planner
 
+# === НОВОЕ: импорт API для связей между модулями ===
+from pages.combinations.api import register_combinations_api
+from pages.combinations.migrations import migrate as migrate_combinations
+
 # Now create the database – tables will be created immediately
 from core.db import Database
 from core.api import register_entity_blueprint
@@ -28,6 +32,14 @@ from core.stats_api import register_stats_api
 
 db = Database('habits.db')
 print("✓ Database initialized")
+
+# === Выполнить миграции для новых таблиц ===
+try:
+    migrate_combinations(db)
+    print("✓ Migrations applied")
+except Exception as e:
+    print(f"⚠ Migration error (tables might already exist): {e}")
+
 import sqlite3
 conn = sqlite3.connect('habits.db')
 cursor = conn.cursor()
@@ -66,6 +78,10 @@ register_ideas(app, db)
 register_finance_api(app, db)
 register_biometric_api(app, db)
 
+# === НОВОЕ: регистрация API для связей между модулями ===
+register_combinations_api(app, db)
+print("✓ Combinations API registered")
+
 # Add routes for static pages
 @app.route('/finance')
 def finance_page():
@@ -100,6 +116,46 @@ def tasks_page():
 def index():
     """Main dashboard page"""
     return send_file('static/index.html', mimetype='text/html')
+
+@app.route('/combinations')
+def combinations_page():
+    """Combinations and links management page"""
+    return send_file('static/combinations.html', mimetype='text/html')
+
+# === DEBUG ENDPOINTS ===
+@app.route('/api/debug/test-completion', methods=['POST'])
+def test_completion():
+    """Create a test completion to debug database loading"""
+    from datetime import date
+    try:
+        today = date.today().isoformat()
+        completion = Completion(
+            date=today,
+            day_number=1,
+            state='WORK',
+            thoughts='Test completion',
+            friction_index=1,
+            totals={'I': 1.0, 'S': 1.0}
+        )
+        db.insert(completion)
+        return {'status': 'success', 'message': f'Test completion created for {today}', 'id': completion.id}
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {'status': 'error', 'message': str(e)}, 500
+
+@app.route('/api/debug/list-completions', methods=['GET'])
+def debug_list_completions():
+    """List all completions for debugging"""
+    try:
+        completions = db.list(Completion)
+        return {
+            'status': 'success',
+            'total': len(completions),
+            'data': [c.to_dict() for c in completions]
+        }
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}, 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5000)

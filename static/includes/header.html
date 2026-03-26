@@ -1,19 +1,17 @@
-<!-- Common header partial: site navigation and quick links -->
 <header class="site-header">
-  <div class="site-header-inner" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #eee;background:#fff">
-    <div style="font-weight:600">Планировщик · Tools</div>
-    <nav style="display:flex;gap:12px;align-items:center">
-      <a href="/" title="Главная генератор">Генератор отчёта</a>
-      <a href="/planner" title="Планировщик">Планировщик</a>
-      <a href="/tasks" title="Мелкие дела">Дела</a>
-      <a href="/ideas" title="Идеи">Идеи</a>
-      <a href="/portable_report.html" title="Портативный">Портативный</a>
+  <div class="site-header-inner">
+    <div class="site-header-logo">
+      <a href="/" class="logo-link" title="На главную">📊 Дисциплина</a>
+    </div>
+    <nav class="site-nav">
+      <a href="/" class="nav-link" title="Главная статистика">📈 Главная</a>
+      <a href="/report" class="nav-link" title="Генератор отчёта">📝 Отчёт</a>
+      <a href="/planner" class="nav-link" title="Планировщик с roadmap">🗺️ Планировщик</a>
+      <a href="/tasks" class="nav-link" title="Мелкие дела">✓ Дела</a>
+      <a href="/ideas" class="nav-link" title="Блокнот идей">💡 Идеи</a>
+      <a href="/finance" class="nav-link" title="Финансы">💰 Финансы</a>
+      <a href="/biometric" class="nav-link" title="Биометрика">❤️ Биометрика</a>
+      <a href="/combinations" class="nav-link" title="Настройка связей">⚙️ Связи</a>
     </nav>
   </div>
 </header>
-
-<!--
-  Этот файл вставляется в страницы через `data-include` и `include-loader.js`.
-  Сюда выносится всё, что повторяется вверху страниц (навбар, логотип и т.п.).
-  Комментарии и структура минимальны — при необходимости добавьте классы и стили в общие css.
--->

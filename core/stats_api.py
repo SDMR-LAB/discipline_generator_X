@@ -261,6 +261,23 @@ def register_stats_api(app, db):
             print(traceback.format_exc())
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
+    @bp.route('/random_thought', methods=['GET'])
+    def random_thought():
+        """Возвращает случайную мысль из записей дня."""
+        try:
+            from pages.completions.model import Completion
+            completions = db.list(Completion, order_by='id')  # можно использовать любую сортировку
+            # Фильтруем те, у которых есть thoughts
+            thoughts = [c['thoughts'] for c in completions if c['thoughts'] and c['thoughts'].strip()]
+            if not thoughts:
+                return jsonify({'status': 'success', 'thought': 'Пока нет заметок. Напишите что-нибудь!'})
+            import random
+            thought = random.choice(thoughts)
+            return jsonify({'status': 'success', 'thought': thought})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     app.register_blueprint(bp)
 
 

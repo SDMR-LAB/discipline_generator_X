@@ -5,71 +5,188 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="/static/style.css">
   <title>Главная — Статистика дисциплины</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .copy-btn {
+      margin-top: 12px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .copy-btn:hover {
+      background: #2c5dcf;
+    }
+    .idea-card {
+      background: #fff8e7;
+      border-left: 4px solid #f0c36d;
+      margin: 20px 0;
+    }
+    .recommendations {
+      background: #eaf7ea;
+      border-left: 4px solid #2ecc71;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-item {
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .chart-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .chart-container {
+      flex: 1;
+      min-width: 300px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .controls {
+      margin: 12px 0;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button.small {
+      padding: 4px 12px;
+      font-size: 12px;
+    }
+    .text-stats {
+      font-family: monospace;
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 300px;
+      overflow: auto;
+      border: 1px solid #eee;
+    }
+  </style>
 </head>
 <body>
-  <nav class="top-nav">
-    <a href="/">Главная</a>
-    <a href="/report">Отчёт</a>
-    <a href="/planner">Планировщик</a>
-    <a href="/ideas">Идеи</a>
-    <a href="/tasks">Мелкие дела</a>
-  </nav>
+  <div data-include="/static/includes/header.html"></div>
+  
+  <div class="main-content">
+    <h1>Дашборд дисциплины</h1>
+    <p class="small">Обзор прогресса, прогнозы, рекомендации и случайная идея.</p>
 
-  <h1>Дашборд дисциплины</h1>
-  <p class="small">Обзор прогресса, стриков и прогноз на завтра (ML).</p>
-
-  <section class="cards-grid">
-    <article class="card" id="card-total-days">
-      <h3>Дней дисциплины</h3>
-      <div id="totalDaysValue">—</div>
-    </article>
-    <article class="card" id="card-current-streak">
-      <h3>Текущий стрик</h3>
-      <div id="currentStreakValue">—</div>
-    </article>
-    <article class="card" id="card-best-streak">
-      <h3>Макс. стрик</h3>
-      <div id="bestStreakValue">—</div>
-    </article>
-    <article class="card" id="card-average-i">
-      <h3>Средний I (неделя)</h3>
-      <div id="avgIValue">—</div>
-    </article>
-    <article class="card" id="card-average-st">
-      <h3>Средний ST (неделя)</h3>
-      <div id="avgSTValue">—</div>
-    </article>
-    <article class="card" id="card-prediction">
-      <h3>Прогноз ML (ST на завтра)</h3>
-      <div id="predictionValue">—</div>
-    </article>
-    <article class="card" id="card-discipline-counter">
-      <h3>Дисциплинированный счётчик</h3>
-      <div id="disciplineCounterValue">—</div>
-      <div class="progress-bar">
-        <div id="disciplineProgressFill" class="progress-fill"></div>
-      </div>
-      <small id="disciplineProgressText">0/100 дней</small>
-    </article>
-  </section>
-
-  <section class="stat-block">
-    <h2>История за период</h2>
-    <div class="controls" style="margin-bottom:12px;">
-      <button id="btnWeek" class="small">7 дн</button>
-      <button id="btnMonth" class="small">30 дн</button>
-      <button id="btnAll" class="small">Все</button>
+    <!-- Карточки с ключевыми метриками -->
+    <div class="cards-grid">
+      <article class="card" id="card-total-days">
+        <h3>Дней дисциплины</h3>
+        <div id="totalDaysValue">—</div>
+      </article>
+      <article class="card" id="card-current-streak">
+        <h3>Текущий стрик</h3>
+        <div id="currentStreakValue">—</div>
+      </article>
+      <article class="card" id="card-best-streak">
+        <h3>Макс. стрик</h3>
+        <div id="bestStreakValue">—</div>
+      </article>
+      <article class="card" id="card-avg-st">
+        <h3>Средний ST (неделя)</h3>
+        <div id="avgSTValue">—</div>
+      </article>
+      <article class="card" id="card-prediction">
+        <h3>Прогноз ST на завтра</h3>
+        <div id="predictionValue">—</div>
+      </article>
+      <article class="card" id="card-discipline-counter">
+        <h3>Дисциплинированный счётчик</h3>
+        <div id="disciplineCounterValue">—</div>
+        <div class="progress-bar">
+          <div id="disciplineProgressFill" class="progress-fill"></div>
+        </div>
+        <small id="disciplineProgressText">0/100 дней</small>
+      </article>
     </div>
-    <pre id="periodJson" style="background:#fff;border:1px solid #ddd;padding:10px;border-radius:6px;overflow:auto;height:240px;"></pre>
-  </section>
 
-  <section class="stat-block">
-    <h2>Сравнение сегодня/вчера</h2>
-    <div id="dailyComparison" class="stats-grid"></div>
-  </section>
+    <!-- Графики динамики характеристик -->
+    <div class="controls">
+      <span>Период для графиков:</span>
+      <button id="chartWeek" class="small active">7 дн</button>
+      <button id="chartMonth" class="small">30 дн</button>
+      <button id="chartAll" class="small">Все</button>
+    </div>
+    <div class="chart-row">
+      <div class="chart-container">
+        <canvas id="charChart" width="400" height="250"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="stChart" width="400" height="250"></canvas>
+      </div>
+    </div>
 
-  <footer style="margin-top:24px; font-size:13px; color:#555;">Использует API: /api/stats/period, /api/stats/streaks, /api/stats/daily_comparison, /api/stats/ml_predict</footer>
+    <!-- Случайная идея -->
+    <div class="card idea-card">
+      <h3>✨ Случайная идея из списка</h3>
+      <div id="randomIdeaContent" style="font-size: 14px; line-height: 1.4;">Загрузка...</div>
+      <div style="margin-top: 8px;">
+        <button id="refreshIdeaBtn" class="small">Другая идея</button>
+        <a href="/ideas" style="margin-left: 8px; font-size: 12px;">Все идеи</a>
+      </div>
+    </div>
 
-  <script src="/static/index.js"></script>
+    <!-- Рекомендации -->
+    <div class="card recommendations">
+      <h3>💡 Рекомендации</h3>
+      <div id="recommendationsList" style="font-size: 13px; line-height: 1.4;">
+        Анализируем данные...
+      </div>
+    </div>
+
+    <!-- Случайная мысль из дневника -->
+    <div class="card idea-card" style="border-left-color: #9b59b6;">
+      <h3>💭 Случайная мысль</h3>
+      <div id="randomThoughtContent" style="font-size: 14px; line-height: 1.4;">Загрузка...</div>
+      <div style="margin-top: 8px;">
+        <button id="refreshThoughtBtn" class="small">Другая мысль</button>
+      </div>
+    </div>
+
+    <!-- Кнопка копирования статистики -->
+    <div style="margin: 12px 0;">
+      <button id="copyStatsBtn" class="copy-btn">📋 Копировать статистику для нейросети</button>
+    </div>
+
+    <!-- Отображение сырых данных за период (полезно для копирования) -->
+    <div class="stat-block">
+      <h2>История за период</h2>
+      <div class="controls" style="margin-bottom:8px;">
+        <button id="btnWeek" class="small">7 дн</button>
+        <button id="btnMonth" class="small">30 дн</button>
+        <button id="btnAll" class="small">Все</button>
+      </div>
+      <pre id="periodJson" class="text-stats" style="height: auto; max-height: 300px;"></pre>
+    </div>
+
+    <div class="stat-block">
+      <h2>Сравнение сегодня / вчера</h2>
+      <div id="dailyComparison" class="stats-grid"></div>
+    </div>
+
+    <div class="stat-block">
+      <small style="color:#999;">API: /api/stats/period, /api/stats/streaks, /api/stats/daily_comparison, /api/stats/ml_predict, /api/ideas</small>
+    </div>
+  </div>
+
+  <script src="/static/include-loader.js" data-scripts="/static/index.js"></script>
+  <div data-include="/static/includes/footer.html"></div>
 </body>
 </html>

@@ -1,7 +1,21 @@
-body{font-family:Arial,Helvetica,sans-serif;background:#f7f7f8;color:#222;margin:0;padding:16px}
-.container{max-width:800px;margin:0 auto}
-header{display:flex;justify-content:space-between;align-items:center}
-header nav a{margin-left:12px;color:#2b8be6;text-decoration:none}
+/* IDEAS PAGE STYLES */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header nav a {
+  margin-left: 12px;
+  color: #2b8be6;
+  text-decoration: none;
+}
 #newIdeaSection{margin-top:16px;margin-bottom:12px}
 #newIdeaSection input{width:70%;padding:6px;box-sizing:border-box}
 #newIdeaSection button{padding:6px 12px}

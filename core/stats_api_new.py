@@ -9,6 +9,30 @@ def register_stats_api(app, db):
     """Регистрирует API endpoints для статистики."""
     bp = Blueprint('stats', __name__, url_prefix='/api/stats')
 
+    @bp.route('/random_thought', methods=['GET'])
+    def get_random_thought():
+        """Возвращает случайную непустую мысль из записей completions."""
+        try:
+            from pages.completions.model import Completion
+            all_completions = db.list(Completion)
+            thoughts = []
+            for c in all_completions:
+                # Get the thoughts attribute safely
+                if hasattr(c, 'thoughts') and c.thoughts and str(c.thoughts).strip():
+                    thoughts.append(str(c.thoughts).strip())
+                # Fallback in case it's a dict (not typical)
+                elif isinstance(c, dict) and c.get('thoughts') and c['thoughts'].strip():
+                    thoughts.append(c['thoughts'].strip())
+            if not thoughts:
+                return jsonify({'status': 'success', 'thought': None, 'message': 'Нет мыслей'})
+            import random
+            thought = random.choice(thoughts)
+            return jsonify({'status': 'success', 'thought': thought})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @bp.route('/period', methods=['GET'])
     def get_period_stats():
         """Получение статистики за период (week, month, all)"""

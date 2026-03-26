@@ -31,20 +31,261 @@ function formatStats(stats) {
   return `I[${ stats.I.toFixed(2)}] S[${ stats.S.toFixed(2)}] W[${ stats.W.toFixed(2)}] E[${ stats.E.toFixed(2)}] C[${ stats.C.toFixed(2)}] H[${ stats.H.toFixed(2)}] ST[${ Number(stats.ST).toFixed(2)}] $[${ stats.$}]`;
 }
 
-function calculateTotalStats(parsed, friction = 1) {
-  const totals = { I: 0, S: 0, W: 0, E: 0, C: 0, H: 0, ST: 0, $: 0 };
-  const mult = 1 + (friction - 1) / 9;
-  
-  parsed.forEach(item => {
-    if (item.type === "habit" && item.success) {
-      for (const k in totals) {
-        totals[k] += (item.stats[k] || 0) * mult;
-      }
-    }
-  });
-  return totals;
+// +++ NEW: Глобальные переменные для справочников биометрики и финансов
+let mealsCatalog = [];
+let activitiesCatalog = [];
+let measurementsCatalog = [];
+let financeCategories = [];
+let categoriesMap = {};
+
+// +++ NEW: Загрузка справочников биометрики
+async function loadBiometricCatalogs() {
+  try {
+    mealsCatalog = (await fetchAPI("/api/biometric_meals/list")).data;
+    activitiesCatalog = (await fetchAPI("/api/biometric_physical_activity/list")).data;
+    measurementsCatalog = (await fetchAPI("/api/biometric_measurements/list")).data;
+  } catch (e) {
+    console.warn("Failed to load biometric catalogs", e);
+  }
 }
 
+// +++ NEW: Загрузка категорий финансов
+async function loadFinanceCategories() {
+  try {
+    const data = await fetchAPI("/api/finance_categories/list");
+    financeCategories = data.data;
+    categoriesMap = {};
+    financeCategories.forEach(c => { categoriesMap[c.id] = c; });
+  } catch (e) {
+    console.warn("Failed to load finance categories", e);
+  }
+}
+
+// +++ NEW: Функция учёта связей (биометрика, финансы) в характеристиках
+function calculateTotalStatsWithLinks(parsed, friction, biometricData, financeData) {
+    const mult = 1 + (friction - 1) / 9;
+    // Сначала базовые бонусы (привычки и их комбинации)
+    const totals = calculateTotalStats(parsed, friction);
+
+    // Построение map id привычки -> выполнена ли она
+    const habitNameToId = {};
+    habitsCatalog.forEach(h => {
+        const key = `${h.name}|${h.category}`;
+        habitNameToId[key] = h.id;
+    });
+    const habitIds = {};
+    parsed.forEach(item => {
+        if (item.type === "habit") {
+            const key = `${item.name}|${item.category}`;
+            const id = habitNameToId[key];
+            if (id) habitIds[id] = item.success;
+        }
+    });
+
+    // 1. Связи привычка ↔ биометрика
+    for (const link of habitBiometricLinks) {
+        const habitDone = habitIds[link.habit_id] || false;
+        if (!habitDone) continue;
+
+        let found = false;
+        if (link.biometric_type === 'substance' && link.biometric_id) {
+            found = biometricData.intakes?.some(i => i.substance_id === link.biometric_id && i.taken);
+        } else if (link.biometric_type === 'meal' && link.biometric_id) {
+            found = biometricData.meals?.some(m => m.id === link.biometric_id);
+        } else if (link.biometric_type === 'activity' && link.biometric_id) {
+            found = biometricData.activities?.some(a => a.id === link.biometric_id);
+        } else if (link.biometric_type === 'measurement' && link.biometric_id) {
+            found = biometricData.measurements?.some(m => m.id === link.biometric_id);
+        } else if (!link.biometric_id) {
+            if (link.biometric_type === 'substance') found = biometricData.intakes?.some(i => i.taken);
+            else if (link.biometric_type === 'meal') found = biometricData.meals?.length > 0;
+            else if (link.biometric_type === 'activity') found = biometricData.activities?.length > 0;
+            else if (link.biometric_type === 'measurement') found = biometricData.measurements?.length > 0;
+        }
+
+        if (found) {
+            totals.I += (link.bonus_i || 0) * mult;
+            totals.S += (link.bonus_s || 0) * mult;
+            totals.W += (link.bonus_w || 0) * mult;
+            totals.E += (link.bonus_e || 0) * mult;
+            totals.C += (link.bonus_c || 0) * mult;
+            totals.H += (link.bonus_h || 0) * mult;
+            totals.ST += (link.bonus_st || 0) * mult;
+            totals.$ += (link.bonus_money || 0) * mult;
+        }
+    }
+
+    // 2. Связи привычка ↔ финансы
+    for (const link of habitFinanceLinks) {
+        const habitDone = habitIds[link.habit_id] || false;
+        if (!habitDone) continue;
+
+        let found = false;
+        if (link.finance_type === 'income_active') {
+            const incomes = financeData.filter(t => {
+                const cat = categoriesMap[t.category_id];
+                return cat && cat.type === 'income' && cat.is_active;
+            });
+            const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
+            if (totalIncome >= link.threshold) found = true;
+        } else if (link.finance_type === 'income_passive') {
+            const incomes = financeData.filter(t => {
+                const cat = categoriesMap[t.category_id];
+                return cat && cat.type === 'income' && !cat.is_active;
+            });
+            const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
+            if (totalIncome >= link.threshold) found = true;
+        } else if (link.finance_type === 'expense') {
+            const expenses = financeData.filter(t => {
+                const cat = categoriesMap[t.category_id];
+                return cat && cat.type === 'expense';
+            });
+            const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
+            if (totalExpense >= link.threshold) found = true;
+        }
+
+        if (found) {
+            totals.I += (link.bonus_i || 0) * mult;
+            totals.S += (link.bonus_s || 0) * mult;
+            totals.W += (link.bonus_w || 0) * mult;
+            totals.E += (link.bonus_e || 0) * mult;
+            totals.C += (link.bonus_c || 0) * mult;
+            totals.H += (link.bonus_h || 0) * mult;
+            totals.ST += (link.bonus_st || 0) * mult;
+            totals.$ += (link.bonus_money || 0) * mult;
+        }
+    }
+
+    // 3. Автоматические бонусы от биометрики (без привязки к привычке)
+    for (const bonus of autoBiometricBonuses) {
+        let found = false;
+        if (bonus.biometric_type === 'substance' && bonus.biometric_id) {
+            found = biometricData.intakes?.some(i => i.substance_id === bonus.biometric_id && i.taken);
+        } else if (bonus.biometric_type === 'meal' && bonus.biometric_id) {
+            found = biometricData.meals?.some(m => m.id === bonus.biometric_id);
+        } else if (bonus.biometric_type === 'activity' && bonus.biometric_id) {
+            found = biometricData.activities?.some(a => a.id === bonus.biometric_id);
+        } else if (bonus.biometric_type === 'measurement' && bonus.biometric_id) {
+            found = biometricData.measurements?.some(m => m.id === bonus.biometric_id);
+        } else if (!bonus.biometric_id) {
+            if (bonus.biometric_type === 'substance') found = biometricData.intakes?.some(i => i.taken);
+            else if (bonus.biometric_type === 'meal') found = biometricData.meals?.length > 0;
+            else if (bonus.biometric_type === 'activity') found = biometricData.activities?.length > 0;
+            else if (bonus.biometric_type === 'measurement') found = biometricData.measurements?.length > 0;
+        }
+
+        if (found) {
+            totals.I += (bonus.bonus_i || 0) * mult;
+            totals.S += (bonus.bonus_s || 0) * mult;
+            totals.W += (bonus.bonus_w || 0) * mult;
+            totals.E += (bonus.bonus_e || 0) * mult;
+            totals.C += (bonus.bonus_c || 0) * mult;
+            totals.H += (bonus.bonus_h || 0) * mult;
+            totals.ST += (bonus.bonus_st || 0) * mult;
+            totals.$ += (bonus.bonus_money || 0) * mult;
+        }
+    }
+
+    return totals;
+}
+
+// Модифицируем calculateTotalStats
+function calculateTotalStats(parsed, friction = 1) {
+    const totals = { I: 0, S: 0, W: 0, E: 0, C: 0, H: 0, ST: 0, $: 0 };
+    const mult = 1 + (friction - 1) / 9;
+
+    // --- 1. Характеристики от самих привычек (уже было) ---
+    parsed.forEach(item => {
+        if (item.type === "habit" && item.success) {
+            for (const k in totals) {
+                totals[k] += (item.stats[k] || 0) * mult;
+            }
+        }
+    });
+
+    // --- 2. Бонусы от сочетаний привычек (уже было) ---
+    const habitNameToId = {};
+    habitsCatalog.forEach(h => {
+        const key = `${h.name}|${h.category}`;
+        habitNameToId[key] = h.id;
+    });
+    const habitIds = {};
+    parsed.forEach(item => {
+        if (item.type === "habit") {
+            const key = `${item.name}|${item.category}`;
+            const id = habitNameToId[key];
+            if (id) habitIds[id] = item.success;
+        }
+    });
+    for (const combo of habitCombinations) {
+        const aDone = habitIds[combo.habit_a] || false;
+        const bDone = habitIds[combo.habit_b] || false;
+        if (aDone && bDone) {
+            totals.I += (combo.i || 0) * mult;
+            totals.S += (combo.s || 0) * mult;
+            totals.W += (combo.w || 0) * mult;
+            totals.E += (combo.e || 0) * mult;
+            totals.C += (combo.c || 0) * mult;
+            totals.H += (combo.h || 0) * mult;
+            totals.ST += (combo.st || 0) * mult;
+            totals.$ += (combo.money || 0) * mult;
+        }
+    }
+
+    console.group("DEBUG: calculateTotalStats");
+    console.log("HabitIds:", habitIds);
+    console.log("Combinations count:", habitCombinations.length);
+    habitCombinations.forEach((combo, idx) => {
+        console.log(`Combo ${idx}: habit_a=${combo.habit_a}, habit_b=${combo.habit_b}, done? a=${habitIds[combo.habit_a]} b=${habitIds[combo.habit_b]}`);
+    });
+    console.groupEnd();
+
+    // --- 3. Бонусы от связей привычка ↔ биометрика ---
+    for (const link of habitBiometricLinks) {
+        // Проверяем, выполнена ли привычка
+        const habitId = link.habit_id;
+        const habitDone = habitIds[habitId] || false;
+        if (!habitDone) continue;
+
+        // Проверяем, есть ли биометрическая запись
+        const hasEntry = hasBiometricEntry(link.biometric_type, link.biometric_id);
+        if (!hasEntry) continue;
+
+        // Добавляем бонусы
+        for (const k in totals) {
+            totals[k] += (link[`bonus_${k.toLowerCase()}`] || 0) * mult;
+        }
+    }
+
+    // --- 4. Бонусы от связей привычка ↔ финансы ---
+    for (const link of habitFinanceLinks) {
+        const habitId = link.habit_id;
+        const habitDone = habitIds[habitId] || false;
+        if (!habitDone) continue;
+
+        const hasTx = hasFinanceTransaction(link.finance_type, link.category_id, link.threshold);
+        if (!hasTx) continue;
+
+        for (const k in totals) {
+            totals[k] += (link[`bonus_${k.toLowerCase()}`] || 0) * mult;
+        }
+    }
+
+    // --- 5. Автоматические бонусы от биометрики (без привязки к привычкам) ---
+    if (autoBiometricBonuses && autoBiometricBonuses.length) {
+        for (const bonus of autoBiometricBonuses) {
+            // Проверяем, есть ли запись данного типа (и ID)
+            const hasEntry = hasBiometricEntry(bonus.biometric_type, bonus.biometric_id);
+            if (!hasEntry) continue;
+
+            for (const k in totals) {
+                totals[k] += (bonus[`bonus_${k.toLowerCase()}`] || 0) * mult;
+            }
+        }
+    }
+
+    return totals;
+}
 function calculateStatSum(stats) {
   if (!stats) return 0;
   const keys = ["I", "S", "W", "E", "C", "H"];
@@ -84,40 +325,64 @@ let streaksData = {};
 let parsed = [];
 let allTimeTotals = null;
 
+let habitCombinations = [];   // привычка ↔ привычка
+let habitBiometricLinks = []; // привычка ↔ биометрика
+let habitFinanceLinks = [];   // привычка ↔ финансы
+let autoBiometricBonuses = []; // автобонусы от биометрики
+
 let currentFinanceData = [];
 let currentBiometricData = { intakes: [], meals: [], measurements: [], activities: [], mental: [] };
 let substancesCatalog = []; // для подстановки названий веществ
 
-const elements = {
-  todayDisplay: document.getElementById("todayDisplay"),
-  currentDayDisplay: document.getElementById("currentDayDisplay"),
-  reportDateEl: document.getElementById("reportDate"),
-  tasksInput: document.getElementById("tasksInput"),
-  parseBtn: document.getElementById("parseBtn"),
-  saveBtn: document.getElementById("saveBtn"),
-  loadBtn: document.getElementById("loadBtn"),
-  clearBtn: document.getElementById("clearBtn"),
-  sampleBtn: document.getElementById("sampleBtn"),
-  loadFromDBBtn: document.getElementById("loadFromDBBtn"),
-  saveToDBBtn: document.getElementById("saveToDBBtn"),
-  addFromCatalogBtn: document.getElementById("addFromCatalogBtn"),
-  tasksList: document.getElementById("tasksList"),
-  makeReportBtn: document.getElementById("makeReport"),
-  reportOutput: document.getElementById("reportOutput"),
-  copyReport: document.getElementById("copyReport"),
-  downloadReport: document.getElementById("downloadReport"),
-  completedCount: document.getElementById("completedCount"),
-  totalCount: document.getElementById("totalCount"),
-  percentDone: document.getElementById("percentDone"),
-  stateSelect: document.getElementById("stateSelect"),
-  thoughtsInput: document.getElementById("thoughtsInput"),
-  dbDateSelect: document.getElementById("dbDateSelect"),
-  frictionIndex: document.getElementById("frictionIndex"),
-  frictionValue: document.getElementById("frictionValue"),
-  lastDayEl: document.getElementById("lastDay"),
-  lastDateEl: document.getElementById("lastDate"),
-  diffDaysEl: document.getElementById("diffDays"),
-};
+let elements = {}; // Инициализируется в DOMContentLoaded
+
+function initializeElements() {
+  console.log("🔵 Инициализация элементов...");
+  elements = {
+    todayDisplay: document.getElementById("todayDisplay"),
+    currentDayDisplay: document.getElementById("currentDayDisplay"),
+    reportDateEl: document.getElementById("reportDate"),
+    tasksInput: document.getElementById("tasksInput"),
+    parseBtn: document.getElementById("parseBtn"),
+    saveBtn: document.getElementById("saveBtn"),
+    loadBtn: document.getElementById("loadBtn"),
+    clearBtn: document.getElementById("clearBtn"),
+    sampleBtn: document.getElementById("sampleBtn"),
+    saveToDBBtn: document.getElementById("saveToDBBtn"),
+    dbDateSelect: document.getElementById("dbDateSelect"),
+    addFromCatalogBtn: document.getElementById("addFromCatalogBtn"),
+    tasksList: document.getElementById("tasksList"),
+    makeReportBtn: document.getElementById("makeReport"),
+    reportOutput: document.getElementById("reportOutput"),
+    copyReport: document.getElementById("copyReport"),
+    downloadReport: document.getElementById("downloadReport"),
+    completedCount: document.getElementById("completedCount"),
+    totalCount: document.getElementById("totalCount"),
+    percentDone: document.getElementById("percentDone"),
+    stateSelect: document.getElementById("stateSelect"),
+    thoughtsInput: document.getElementById("thoughtsInput"),
+    frictionIndex: document.getElementById("frictionIndex"),
+    frictionValue: document.getElementById("frictionValue"),
+    lastDayEl: document.getElementById("lastDay"),
+    lastDateEl: document.getElementById("lastDate"),
+    diffDaysEl: document.getElementById("diffDays"),
+  };
+  
+  // Проверим есть ли все элементы
+  const missingElements = Object.entries(elements)
+    .filter(([key, el]) => el === null)
+    .map(([key]) => key);
+  
+  if (missingElements.length > 0) {
+    console.error("🔴 КРИТИЧНО! Отсутствуют элементы:", missingElements);
+    alert("❌ КРИТИЧНАЯ ОШИБКА: Отсутствуют элементы HTML: " + missingElements.join(", "));
+    return false;
+  } else {
+    console.log("✅ Все элементы инициализированы успешно!");
+  }
+  
+  return true;
+}
 
 async function fetchAPI(url, options = {}) {
   const res = await fetch(url, options);
@@ -156,29 +421,79 @@ async function loadStreaks() {
 
 async function loadDatesFromDB() {
   try {
-    const data = await fetchAPI("/api/stats/period?period=all");
-    console.log("loadDatesFromDB: stats response:", data);
-
-    if (data.stats) {
-      allTimeTotals = {
-        I: Number(data.stats.sum_i || 0),
-        S: Number(data.stats.sum_s || 0),
-        W: Number(data.stats.sum_w || 0),
-        E: Number(data.stats.sum_e || 0),
-        C: Number(data.stats.sum_c || 0),
-        H: Number(data.stats.sum_h || 0),
-        ST: Number(data.stats.sum_st || 0),
-        $: Number(data.stats.sum_money || 0)
-      };
+    console.log("🔵 loadDatesFromDB: STEP 1 - checking dbDateSelect element");
+    if (!elements.dbDateSelect) {
+      console.error("🔴 loadDatesFromDB: dbDateSelect not found!");
+      alert("Ошибка: элемент dbDateSelect не найден");
+      return;
     }
 
-    const dates = (data.days_data || []).map(d => d.date).sort().reverse();
-    console.log("loadDatesFromDB: dates loaded:", dates);
+    console.log("🔵 loadDatesFromDB: STEP 2 - fetching /api/completions/list");
+    const response = await fetchAPI("/api/completions/list");
+    console.log("🔵 loadDatesFromDB: STEP 3 - completions response:", response);
+
+    const completions = response.data || [];
+    console.log("🔵 loadDatesFromDB: STEP 4 - total completions:", completions.length);
+
+    // Логируем каждую дату для диагностики
+    if (completions.length > 0) {
+      console.log("🔵 loadDatesFromDB: Dates in completions:");
+      completions.forEach((c, idx) => {
+        console.log(`  [${idx}] date="${c.date}" id=${c.id}`);
+      });
+    }
+
+    // Извлекаем уникальные даты и сортируем
+    const dates = new Set();
+    completions.forEach(c => {
+      if (c.date) {
+        dates.add(c.date);
+      } else {
+        console.warn("⚠️ loadDatesFromDB: completion without date found! ID:", c.id);
+      }
+    });
+
+    const sortedDates = Array.from(dates).sort().reverse();
+    console.log("🔵 loadDatesFromDB: STEP 5 - unique dates:", sortedDates);
+    
+    if (sortedDates.length === 0) {
+      console.warn("⚠️ loadDatesFromDB: WARNING - no dates found!");
+      alert("ℹ️ Нет данных в базе. Сначала сохраните день.");
+      elements.dbDateSelect.innerHTML = "<option value=\"\">Выберите дату</option>";
+      return;
+    }
+    
+    // Также загружаем статистику за всё время
+    try {
+      const statsResponse = await fetchAPI("/api/stats/period?period=all");
+      if (statsResponse.stats) {
+        allTimeTotals = {
+          I: Number(statsResponse.stats.sum_i || 0),
+          S: Number(statsResponse.stats.sum_s || 0),
+          W: Number(statsResponse.stats.sum_w || 0),
+          E: Number(statsResponse.stats.sum_e || 0),
+          C: Number(statsResponse.stats.sum_c || 0),
+          H: Number(statsResponse.stats.sum_h || 0),
+          ST: Number(statsResponse.stats.sum_st || 0),
+          $: Number(statsResponse.stats.sum_money || 0)
+        };
+        console.log("🔵 loadDatesFromDB: allTimeTotals loaded");
+      }
+    } catch (e) {
+      console.warn("⚠️ loadDatesFromDB: could not load all-time stats:", e);
+    }
+    
     elements.dbDateSelect.innerHTML = "<option value=\"\">Выберите дату</option>" +
-      dates.map(d => `<option value="${d}">${d}</option>`).join("");
+      sortedDates.map(d => `<option value="${d}">${d}</option>`).join("");
+    console.log("✅ loadDatesFromDB: STEP 6 - select populated with", sortedDates.length, "dates");
 
     updateReportOutput();
-  } catch (e) { console.error("loadDatesFromDB", e); }
+    alert("✅ Дат загружено: " + sortedDates.length);
+  } catch (e) { 
+    console.error("🔴 loadDatesFromDB: ERROR:", e);
+    console.error("🔴 loadDatesFromDB: stack:", e.stack);
+    alert("❌ Ошибка при загрузке дат: " + e.message);
+  }
 }
 
 async function loadPeriodStats(period) {
@@ -231,36 +546,48 @@ function displayPeriodStats(data, period) {
 
 async function loadDayFromDB() {
   const date = elements.dbDateSelect.value;
-  if (!date) return;
+  if (!date) {
+    console.warn("⚠️ loadDayFromDB: WARNING - no date selected!");
+    return;
+  }
   try {
-    console.log("loadDayFromDB: loading date:", date);
+    console.log("🔵 loadDayFromDB: STEP 1 - loading date:", date);
     const completion = await fetchAPI(`/api/completions/list?date=${date}`);
-    console.log("loadDayFromDB: completion response:", completion);
-    if (!completion.data.length) throw new Error("День не найден");
+    console.log("🔵 loadDayFromDB: STEP 2 - completion response:", completion);
+    
+    if (!completion.data || !completion.data.length) {
+      console.error("🔴 loadDayFromDB: ERROR - День не найден for date:", date);
+      alert("❌ Данные за этот день не найдены");
+      return;
+    }
+    
     const day = completion.data[0];
-    console.log("loadDayFromDB: day data:", day);
+    console.log("🔵 loadDayFromDB: STEP 3 - day data:", day);
+    
     const habits = await fetchAPI(`/api/completion_habits/list?completion_id=${day.id}`);
-    console.log("loadDayFromDB: habits response:", habits);
+    console.log("🔵 loadDayFromDB: STEP 4 - habits response, count:", habits.data ? habits.data.length : 0);
     
     let text = "";
     let currentCategory = null;
     const friction = day.friction_index || 1;
     
-    for (const h of habits.data) {
-      if (h.category !== currentCategory) {
-        if (currentCategory) text += "\n";
-        currentCategory = h.category;
-        text += `${h.category}\n———————————————\n`;
+    if (habits.data && habits.data.length > 0) {
+      for (const h of habits.data) {
+        if (h.category !== currentCategory) {
+          if (currentCategory) text += "\n";
+          currentCategory = h.category;
+          text += `${h.category}\n———————————————\n`;
+        }
+        const sign = h.success ? "+" : "-";
+        const quantity = h.quantity ? ` — ${h.quantity} ${h.unit || ""}` : "";
+        const stats = formatStats({ I: h.i, S: h.s, W: h.w, E: h.e, C: h.c, H: h.hh, ST: h.st, $: h.money });
+        text += `${sign} ${h.name}${quantity} ${stats}\n`;
       }
-      const sign = h.success ? "+" : "-";
-      const quantity = h.quantity ? ` — ${h.quantity} ${h.unit || ""}` : "";
-      const stats = formatStats({ I: h.i, S: h.s, W: h.w, E: h.e, C: h.c, H: h.hh, ST: h.st, $: h.money });
-      text += `${sign} ${h.name}${quantity} ${stats}\n`;
     }
     
     currentFinanceData = await loadFinanceData(date);
     currentBiometricData = await loadBiometricData(date);
-    await loadSubstancesCatalog(); // подгрузим справочник веществ для отображения
+    await loadSubstancesCatalog();
 
     elements.tasksInput.value = text;
     elements.reportDateEl.value = date;
@@ -274,91 +601,143 @@ async function loadDayFromDB() {
     parseTextInput();
     renderMeta();
     await updateReportOutput();
-    console.log("loadDayFromDB: day loaded successfully");
-  } catch (e) { console.error("loadDayFromDB:", e); alert("Ошибка: " + e.message); }
+    console.log("✅ loadDayFromDB: day loaded successfully");
+  } catch (e) { 
+    console.error("🔴 loadDayFromDB:", e);
+    console.error("🔴 loadDayFromDB stack:", e.stack);
+    alert("❌ Ошибка при загрузке дня: " + e.message); 
+  }
 }
 
 function parseTextToStructure(text) {
-  const lines = text.split("\n");
-  const result = [];
-  let currentCategory = null;
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) {
-      result.push({ type: "blank" });
-      continue;
+  try {
+    console.log("🔵 parseTextToStructure: начало, текст длина:", text?.length || 0);
+    
+    if (!text) {
+      console.warn("⚠️ parseTextToStructure: пустой текст");
+      return [];
     }
+    
+    const lines = text.split("\n");
+    console.log("🔵 parseTextToStructure: разбили на строк:", lines.length);
+    
+    const result = [];
+    let currentCategory = null;
 
-    // Пропускаем разделители (строки из дефисов или тире)
-    const isSeparator = /^[—\-–−—]+$/.test(line) || /^-{3,}$/.test(line) || /^={3,}$/.test(line);
-    if (isSeparator) {
-      continue;
-    }
-
-    // Проверяем, это ли категория (не начинается с +, -, или *)
-    const isHabitLine = line.startsWith("+") || line.startsWith("-") || line.startsWith("*");
-    if (!isHabitLine) {
-      // Это категория
-      currentCategory = line;
-      result.push({ type: "category", text: line });
-      continue;
-    }
-
-    // Это привычка
-    if (line.startsWith("+") || line.startsWith("-")) {
-      const success = line.startsWith("+");
-      let habitText = line.substring(1).trim();
-
-      // Парсим статистику
-      const statsMatch = habitText.match(/(.+?)\s+(I\[.*?\].*)/);
-      let name = habitText;
-      let stats = { I: 0, S: 0, W: 0, E: 0, C: 0, H: 0, ST: 0, $: 0 };
-      let quantity = null, unit = null;
-
-      if (statsMatch) {
-        habitText = statsMatch[1];
-        stats = parseCharacteristics(statsMatch[2]);
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) {
+        result.push({ type: "blank" });
+        continue;
       }
 
-      // Парсим количество и единицу (например "30 мин", "2л", "4 часа")
-      const quantMatch = habitText.match(/(.+?)\s*—\s*(\d+(?:\.\d+)?)\s*(.+?)$/);
-      if (quantMatch) {
-        name = quantMatch[1];
-        quantity = parseFloat(quantMatch[2]);
-        unit = quantMatch[3];
-      } else {
-        name = habitText;
+      // Пропускаем разделители (строки из дефисов или тире)
+      const isSeparator = /^[—\-–−—]+$/.test(line) || /^-{3,}$/.test(line) || /^={3,}$/.test(line);
+      if (isSeparator) {
+        continue;
       }
 
-      const habitObj = {
-        type: "habit",
-        name: name.trim(),
-        category: currentCategory || "Без категории",
-        success,
-        quantity,
-        unit,
-        stats
-      };
+      // Проверяем, это ли категория (не начинается с +, -, или *)
+      const isHabitLine = line.startsWith("+") || line.startsWith("-") || line.startsWith("*");
+      if (!isHabitLine) {
+        // Это категория
+        currentCategory = line;
+        result.push({ type: "category", text: line });
+        continue;
+      }
 
-      result.push(habitObj);
+      // Это привычка
+      if (line.startsWith("+") || line.startsWith("-")) {
+        const success = line.startsWith("+");
+        let habitText = line.substring(1).trim();
+
+        // Парсим статистику
+        const statsMatch = habitText.match(/(.+?)\s+(I\[.*?\].*)/);
+        let name = habitText;
+        let stats = { I: 0, S: 0, W: 0, E: 0, C: 0, H: 0, ST: 0, $: 0 };
+        let quantity = null, unit = null;
+
+        if (statsMatch) {
+          habitText = statsMatch[1];
+          stats = parseCharacteristics(statsMatch[2]);
+        }
+
+        // Парсим количество и единицу (например "30 мин", "2л", "4 часа")
+        const quantMatch = habitText.match(/(.+?)\s*—\s*(\d+(?:\.\d+)?)\s*(.+?)$/);
+        if (quantMatch) {
+          name = quantMatch[1];
+          quantity = parseFloat(quantMatch[2]);
+          unit = quantMatch[3];
+        } else {
+          name = habitText;
+        }
+
+        const habitObj = {
+          type: "habit",
+          name: name.trim(),
+          category: currentCategory || "Без категории",
+          success,
+          quantity,
+          unit,
+          stats
+        };
+
+        result.push(habitObj);
+      }
     }
+
+    console.log("✅ parseTextToStructure: успешно, привычек:", result.filter(r => r.type === "habit").length);
+    return result;
+  } catch (e) {
+    console.error("🔴 parseTextToStructure: ошибка:", e);
+    console.error("🔴 parseTextToStructure: stack:", e.stack);
+    throw e;
   }
-
-  return result;
 }
 
 function parseTextInput() {
-  parsed = parseTextToStructure(elements.tasksInput.value);
-  console.log("📊 Parsed habits:", parsed.filter(p => p.type === "habit").map(h => ({ name: h.name, category: h.category })));
-  renderTasks();
-  renderMeta();
-  // Вычитаем и рендерим caractеристики
-  const friction = parseInt(elements.frictionIndex.value) || 1;
-  const totals = calculateTotalStats(parsed, friction);
-  renderTotalStats(totals);
+  try {
+    console.log("🔵 parseTextInput: начало парсинга");
+    console.log("🔵 parseTextInput: tasksInput value:", elements.tasksInput?.value?.substring(0, 100));
+    
+    if (!elements.tasksInput) {
+      console.error("🔴 parseTextInput: tasksInput элемент не найден!");
+      throw new Error("tasksInput элемент не найден");
+    }
+    
+    const inputText = elements.tasksInput.value;
+    console.log("🔵 parseTextInput: длина текста:", inputText.length);
+    
+    parsed = parseTextToStructure(inputText);
+    console.log("🔵 parseTextInput: успешно спарсено элементов:", parsed.length);
+    console.log("📊 Parsed habits:", parsed.filter(p => p.type === "habit").map(h => ({ name: h.name, category: h.category })));
+    
+    renderTasks();
+    renderMeta();
+    
+    // Вычитаем и рендерим характеристики
+    const friction = parseInt(elements.frictionIndex.value) || 1;
+    const totals = calculateTotalStatsWithLinks(parsed, friction, currentBiometricData, currentFinanceData);
+    renderTotalStats(totals);
+    
+    console.log("✅ parseTextInput: завершено успешно");
+  } catch (e) {
+    console.error("🔴 parseTextInput: ошибка:", e);
+    console.error("🔴 parseTextInput: stack:", e.stack);
+    alert("❌ Ошибка парсинга: " + e.message);
+  }
 }
 
+async function loadAllLinks() {
+  try {
+    habitCombinations = await fetchAPI('/api/combinations/list').then(r => r.data);
+    habitBiometricLinks = await fetchAPI('/api/combinations/habit-biometric').then(r => r.data);
+    habitFinanceLinks = await fetchAPI('/api/combinations/habit-finance').then(r => r.data);
+    autoBiometricBonuses = await fetchAPI('/api/combinations/biometric-characteristics').then(r => r.data);
+  } catch (e) {
+    console.warn('Failed to load links', e);
+  }
+}
 
 function renderTasks() {
   const container = elements.tasksList;
@@ -410,7 +789,7 @@ function renderTasks() {
         updateReportOutput();
         // Пересчитать характеристики
         const friction = parseInt(elements.frictionIndex.value) || 1;
-        const totals = calculateTotalStats(parsed, friction);
+        const totals = calculateTotalStatsWithLinks(parsed, friction, currentBiometricData, currentFinanceData);
         renderTotalStats(totals);
       };
 
@@ -491,13 +870,183 @@ function renderMeta() {
   elements.percentDone.textContent = pct + "%";
 
   const friction = parseInt(elements.frictionIndex.value) || 1;
-  const totals = calculateTotalStats(parsed, friction);
+  const totals = calculateTotalStatsWithLinks(parsed, friction, currentBiometricData, currentFinanceData);
   renderTotalStats(totals);
+}
+
+
+// Функция для проверки, есть ли биометрическая запись определённого типа (и опционально ID)
+function hasBiometricEntry(type, id = null) {
+    if (!currentBiometricData) return false;
+    let list = [];
+    switch (type) {
+        case 'substance': list = currentBiometricData.intakes; break;
+        case 'meal': list = currentBiometricData.meals; break;
+        case 'activity': list = currentBiometricData.activities; break;
+        case 'measurement': list = currentBiometricData.measurements; break;
+        case 'sleep': list = []; // сон пока не реализован
+        default: return false;
+    }
+    if (!list.length) return false;
+    if (id === null) return true; // любая запись
+    // ищем запись с указанным id (для intake это substance_id, для meal - id, и т.д.)
+    if (type === 'substance') {
+        return list.some(entry => entry.substance_id === id);
+    } else if (type === 'meal') {
+        return list.some(entry => entry.id === id);
+    } else if (type === 'activity') {
+        return list.some(entry => entry.id === id);
+    } else if (type === 'measurement') {
+        return list.some(entry => entry.id === id);
+    }
+    return false;
+}
+
+// Функция для проверки финансовых транзакций
+function hasFinanceTransaction(type, categoryId = null, threshold = 0) {
+    if (!currentFinanceData) return false;
+    let sum = 0;
+    for (const tx of currentFinanceData) {
+        // Определяем тип транзакции по категории
+        const cat = categoriesMap[tx.category_id];
+        if (!cat) continue;
+        const txType = cat.type; // 'income' или 'expense'
+        if (type === 'income_active' && txType === 'income' && (!categoryId || tx.category_id === categoryId)) {
+            sum += tx.amount;
+        } else if (type === 'income_passive' && txType === 'income' && (!categoryId || tx.category_id === categoryId)) {
+            sum += tx.amount;
+        } else if (type === 'expense' && txType === 'expense' && (!categoryId || tx.category_id === categoryId)) {
+            sum += tx.amount;
+        }
+    }
+    return sum >= threshold;
+}
+
+// Проверка активности сочетания привычек
+function isCombinationActive(combo) {
+    const habitIds = {};
+    parsed.forEach(item => {
+        if (item.type === "habit") {
+            const habit = habitsCatalog.find(h => h.name === item.name && h.category === item.category);
+            if (habit) habitIds[habit.id] = item.success;
+        }
+    });
+    return habitIds[combo.habit_a] && habitIds[combo.habit_b];
+}
+
+// Проверка активности связи привычка ↔ биометрика
+function isBiometricLinkActive(link) {
+    // Проверяем, выполнена ли привычка
+    let habitSuccess = false;
+    for (const item of parsed) {
+        if (item.type === "habit") {
+            const habit = habitsCatalog.find(h => h.name === item.name && h.category === item.category);
+            if (habit && habit.id === link.habit_id && item.success) {
+                habitSuccess = true;
+                break;
+            }
+        }
+    }
+    if (!habitSuccess) return false;
+
+    // Проверяем наличие биометрической записи
+    switch (link.biometric_type) {
+        case 'substance':
+            if (link.biometric_id) {
+                return currentBiometricData.intakes.some(i => i.substance_id === link.biometric_id && i.taken);
+            } else {
+                return currentBiometricData.intakes.some(i => i.taken);
+            }
+        case 'meal':
+            if (link.biometric_id) {
+                return currentBiometricData.meals.some(m => m.id === link.biometric_id);
+            } else {
+                return currentBiometricData.meals.length > 0;
+            }
+        case 'activity':
+            if (link.biometric_id) {
+                return currentBiometricData.activities.some(a => a.id === link.biometric_id);
+            } else {
+                return currentBiometricData.activities.length > 0;
+            }
+        case 'measurement':
+            if (link.biometric_id) {
+                return currentBiometricData.measurements.some(m => m.id === link.biometric_id);
+            } else {
+                return currentBiometricData.measurements.length > 0;
+            }
+        default:
+            return false;
+    }
+}
+
+// Проверка активности связи привычка ↔ финансы
+function isFinanceLinkActive(link) {
+    // Проверяем привычку
+    let habitSuccess = false;
+    for (const item of parsed) {
+        if (item.type === "habit") {
+            const habit = habitsCatalog.find(h => h.name === item.name && h.category === item.category);
+            if (habit && habit.id === link.habit_id && item.success) {
+                habitSuccess = true;
+                break;
+            }
+        }
+    }
+    if (!habitSuccess) return false;
+
+    // Проверяем финансовые транзакции
+    let sum = 0;
+    for (const tx of currentFinanceData) {
+        const cat = categoriesMap[tx.category_id];
+        if (!cat) continue;
+        const txType = cat.type;
+        if (link.finance_type === 'income_active' && txType === 'income' && cat.is_active) {
+            sum += tx.amount;
+        } else if (link.finance_type === 'income_passive' && txType === 'income' && !cat.is_active) {
+            sum += tx.amount;
+        } else if (link.finance_type === 'expense' && txType === 'expense') {
+            sum += tx.amount;
+        }
+    }
+    return sum >= (link.threshold || 0);
+}
+
+// Проверка активности автоматического бонуса от биометрики
+function isAutoBiometricBonusActive(bonus) {
+    switch (bonus.biometric_type) {
+        case 'substance':
+            if (bonus.biometric_id) {
+                return currentBiometricData.intakes.some(i => i.substance_id === bonus.biometric_id && i.taken);
+            } else {
+                return currentBiometricData.intakes.some(i => i.taken);
+            }
+        case 'meal':
+            if (bonus.biometric_id) {
+                return currentBiometricData.meals.some(m => m.id === bonus.biometric_id);
+            } else {
+                return currentBiometricData.meals.length > 0;
+            }
+        case 'activity':
+            if (bonus.biometric_id) {
+                return currentBiometricData.activities.some(a => a.id === bonus.biometric_id);
+            } else {
+                return currentBiometricData.activities.length > 0;
+            }
+        case 'measurement':
+            if (bonus.biometric_id) {
+                return currentBiometricData.measurements.some(m => m.id === bonus.biometric_id);
+            } else {
+                return currentBiometricData.measurements.length > 0;
+            }
+        default:
+            return false;
+    }
 }
 
 async function updateReportOutput() {
   const friction = parseInt(elements.frictionIndex.value) || 1;
-  const totals = calculateTotalStats(parsed, friction);
+  const totals = calculateTotalStatsWithLinks(parsed, friction, currentBiometricData, currentFinanceData);
 
   let report = `✨🎉 === ОТЧЁТ ДИСЦИПЛИНЫ === 🎉✨\n\n`;
   report += `📅 Дата: ${elements.reportDateEl.value || toISODate(new Date())}\n`;
@@ -551,6 +1100,79 @@ async function updateReportOutput() {
       report += `  ${statusIcon} ${sign} ${item.name}${qty}${streakText}\n`;
     }
   });
+
+  // === СВЯЗИ МЕЖДУ МОДУЛЯМИ ===
+  const activeCombos = habitCombinations.filter(isCombinationActive);
+  const activeBioLinks = habitBiometricLinks.filter(isBiometricLinkActive);
+  const activeFinanceLinks = habitFinanceLinks.filter(isFinanceLinkActive);
+  const activeAutoBonuses = autoBiometricBonuses.filter(isAutoBiometricBonusActive);
+
+  if (activeCombos.length > 0 || activeBioLinks.length > 0 || activeFinanceLinks.length > 0 || activeAutoBonuses.length > 0) {
+      report += `\n=== СВЯЗИ МЕЖДУ МОДУЛЯМИ ===\n`;
+      
+      if (activeCombos.length > 0) {
+          report += `Сочетания привычек:\n`;
+          for (const combo of activeCombos) {
+              const habitA = habitsCatalog.find(h => h.id === combo.habit_a);
+              const habitB = habitsCatalog.find(h => h.id === combo.habit_b);
+              const bonusStr = [];
+              ['i','s','w','e','c','h','st','money'].forEach(k => {
+                  if (combo[k] !== 0) bonusStr.push(`${k.toUpperCase()}[${combo[k].toFixed(2)}]`);
+              });
+              report += `  ${combo.name || 'Без названия'}: ${habitA?.name || '?'} + ${habitB?.name || '?'} → ${bonusStr.join(' ')}\n`;
+          }
+      }
+      
+      if (activeBioLinks.length > 0) {
+          report += `Связи привычка ↔ биометрика:\n`;
+          for (const link of activeBioLinks) {
+              const habit = habitsCatalog.find(h => h.id === link.habit_id);
+              let bioName = link.biometric_type;
+              if (link.biometric_type === 'substance' && link.biometric_id) {
+                  const sub = substancesCatalog.find(s => s.id === link.biometric_id);
+                  if (sub) bioName = sub.name;
+                  else bioName = `Вещество #${link.biometric_id}`;
+              } else if (link.biometric_type === 'meal' && link.biometric_id) {
+                  const meal = mealsCatalog.find(m => m.id === link.biometric_id);
+                  bioName = meal ? `${meal.date} ${meal.meal_type}` : `Приём #${link.biometric_id}`;
+              } else if (link.biometric_type === 'activity' && link.biometric_id) {
+                  const act = activitiesCatalog.find(a => a.id === link.biometric_id);
+                  bioName = act ? `${act.date} ${act.activity_type}` : `Активность #${link.biometric_id}`;
+              } else if (link.biometric_type === 'measurement' && link.biometric_id) {
+                  const meas = measurementsCatalog.find(m => m.id === link.biometric_id);
+                  bioName = meas ? meas.date : `Измерение #${link.biometric_id}`;
+              }
+              const bonusStr = [];
+              ['i','s','w','e','c','h','st','money'].forEach(k => {
+                  if (link[`bonus_${k}`] !== 0) bonusStr.push(`${k.toUpperCase()}[${link[`bonus_${k}`].toFixed(2)}]`);
+              });
+              report += `  ${habit?.name || '?'} ↔ ${bioName} → ${bonusStr.join(' ')}\n`;
+          }
+      }
+      
+      if (activeFinanceLinks.length > 0) {
+          report += `Связи привычка ↔ финансы:\n`;
+          for (const link of activeFinanceLinks) {
+              const habit = habitsCatalog.find(h => h.id === link.habit_id);
+              const bonusStr = [];
+              ['i','s','w','e','c','h','st','money'].forEach(k => {
+                  if (link[`bonus_${k}`] !== 0) bonusStr.push(`${k.toUpperCase()}[${link[`bonus_${k}`].toFixed(2)}]`);
+              });
+              report += `  ${habit?.name || '?'} ↔ ${link.finance_type}${link.category_id ? ` (категория ${link.category_id})` : ''}, порог ${link.threshold} → ${bonusStr.join(' ')}\n`;
+          }
+      }
+      
+      if (activeAutoBonuses.length > 0) {
+          report += `Автоматические бонусы от биометрики:\n`;
+          for (const bonus of activeAutoBonuses) {
+              const bonusStr = [];
+              ['i','s','w','e','c','h','st','money'].forEach(k => {
+                  if (bonus[`bonus_${k}`] !== 0) bonusStr.push(`${k.toUpperCase()}[${bonus[`bonus_${k}`].toFixed(2)}]`);
+              });
+              report += `  ${bonus.biometric_type}${bonus.biometric_id ? ` #${bonus.biometric_id}` : ''}: ${bonus.description || 'без описания'} → ${bonusStr.join(' ')}\n`;
+          }
+      }
+  }
 
   // === ФИНАНСЫ ===
   if (currentFinanceData && currentFinanceData.length > 0) {
@@ -830,11 +1452,18 @@ async function loadSubstancesCatalog() {
 async function saveToDatabase() {
   try {
     const friction = parseInt(elements.frictionIndex.value) || 1;
-    const totals = calculateTotalStats(parsed, friction);
-    console.log("saveToDatabase: totals calculated:", totals);
+    const totals = calculateTotalStatsWithLinks(parsed, friction, currentBiometricData, currentFinanceData);
+    console.log("🔵 saveToDatabase: STEP 1 - totals calculated:", totals);
+
+    // КРИТИЧНОЕ: убеждаемся что дата установлена!
+    if (!elements.reportDateEl.value) {
+      const today = toISODate(new Date());
+      elements.reportDateEl.value = today;
+      console.warn("⚠️ saveToDatabase: reportDateEl была пуста! Установлена текущая дата:", today);
+    }
 
     const completionData = {
-      date: elements.reportDateEl.value || toISODate(new Date()),
+      date: elements.reportDateEl.value,
       day_number: parseInt(elements.currentDayDisplay.textContent) || 1,
       state: elements.stateSelect.value,
       thoughts: elements.thoughtsInput.value,
@@ -842,30 +1471,41 @@ async function saveToDatabase() {
       totals: totals
     };
 
-    console.log("saveToDatabase: completionData:", completionData);
+    console.log("🔵 saveToDatabase: STEP 2 - completionData:", {
+      date: completionData.date,
+      day_number: completionData.day_number,
+      habits_count: parsed.filter(p => p.type === "habit").length
+    });
+    console.log("🔵 saveToDatabase: STEP 2b - FULL completionData:", completionData);
+    
+    console.log("🔵 saveToDatabase: STEP 3 - checking existing completion for date:", completionData.date);
     let response = await fetchAPI(`/api/completions/list?date=${completionData.date}`);
+    console.log("🔵 saveToDatabase: STEP 4 - list response count:", response.data ? response.data.length : 0);
     let completionId;
 
     if (response.data && response.data.length > 0) {
       completionId = response.data[0].id;
-      console.log("saveToDatabase: updating existing completion:", completionId);
-      await fetchAPI(`/api/completions/update/${completionId}`, {
+      console.log("🔵 saveToDatabase: STEP 5 - updating existing completion ID:", completionId);
+      const updateRes = await fetchAPI(`/api/completions/update/${completionId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(completionData)
       });
+      console.log("🔵 saveToDatabase: STEP 6 - update response:", updateRes);
     } else {
-      console.log("saveToDatabase: creating new completion");
+      console.log("🔵 saveToDatabase: STEP 5 - creating NEW completion for date:", completionData.date);
       const create = await fetchAPI("/api/completions/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(completionData)
       });
+      console.log("🔵 saveToDatabase: STEP 6 - create response:", create);
       completionId = create.data.id;
-      console.log("saveToDatabase: created completion:", completionId);
+      console.log("✅ saveToDatabase: STEP 7 - SUCCESS! Created completion with ID:", completionId, "for date:", completionData.date);
     }
 
     const old = await fetchAPI(`/api/completion_habits/list?completion_id=${completionId}`);
+    console.log("🔵 saveToDatabase: STEP 8 - deleting old habits, count:", old.data ? old.data.length : 0);
     for (const h of old.data) {
       await fetchAPI(`/api/completion_habits/delete/${h.id}`, { method: "DELETE" });
     }
@@ -877,6 +1517,7 @@ async function saveToDatabase() {
       }
     });
 
+    console.log("🔵 saveToDatabase: STEP 9 - saving", rawHabits.length, "habits");
     for (const h of rawHabits) {
       const catalogHabit = habitsCatalog.find(c => c.name === h.name && c.category === h.category);
       const payload = {
@@ -898,35 +1539,94 @@ async function saveToDatabase() {
       });
     }
 
-    alert("✓ Сохранено в БД! Categories и данные сохранены правильно.");
+    console.log("✅ ✅ ✅ saveToDatabase: УСПЕХ! Данные сохранены в БД");
+    alert("✓ Сохранено в БД!\nДата: " + completionData.date + "\nПривычек: " + rawHabits.length);
     loadDatesFromDB();
     loadStreaks();
   } catch (e) {
-    console.error(e);
-    alert("Ошибка при сохранении: " + e.message);
+    console.error("🔴 saveToDatabase: ОШИБКА:", e);
+    console.error("🔴 saveToDatabase: stack:", e.stack);
+    alert("❌ Ошибка при сохранении: " + e.message);
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  elements.parseBtn?.addEventListener("click", parseTextInput);
-  elements.saveBtn?.addEventListener("click", saveToLocalStorage);
-  elements.loadBtn?.addEventListener("click", () => {
-    loadFromLocalStorage();
-    alert("✓ Загружено из localStorage");
-  });
-  elements.clearBtn?.addEventListener("click", () => {
-    if (confirm("Очистить все данные?")) {
-      localStorage.removeItem("disciplineReport");
-      elements.tasksInput.value = "";
-      parsed = [];
-      elements.thoughtsInput.value = "";
-      elements.stateSelect.value = "WORK";
-      renderTasks();
-      renderMeta();
+// Немедленный запуск инициализации для поддержки динамической загрузки через include-loader.js
+(async () => {
+  try {
+    console.log("🔵 report.js: immediate init start");
+    
+    // Инициализируем элементы ПЕРВЫМИ
+    const initOk = initializeElements();
+    if (!initOk) {
+      console.error("🔴 КРИТИЧНАЯ ОШИБКА: initializeElements вернул false!");
+      throw new Error("Не удалось инициализировать элементы страницы");
     }
-  });
-  elements.sampleBtn?.addEventListener("click", () => {
-    const sampleText = `Здоровье
+    
+    // Загружаем каталоги
+    await loadHabitsCatalog();
+    await loadCombinations();
+    await loadStreaks();
+    await loadDatesFromDB()
+
+    console.log("🔵 Регистрация обработчиков событий...");
+    
+    // Проверим что кнопки доступны
+    const buttonNames = ["parseBtn", "saveBtn", "loadBtn", "clearBtn", "sampleBtn", "saveToDBBtn", "makeReportBtn", "copyReport", "downloadReport"];
+    buttonNames.forEach(name => {
+      if (elements[name]) {
+        console.log(`✅ ${name} найдена`);
+      } else {
+        console.warn(`⚠️ ${name} НЕ НАЙДЕНА!`);
+      }
+    });
+    
+    elements.parseBtn?.addEventListener("click", () => {
+      try {
+        console.log("🔵 parseBtn clicked");
+        parseTextInput();
+      } catch (e) {
+        console.error("🔴 Error in parseBtn:", e);
+        alert("Ошибка парсинга: " + e.message);
+      }
+    });
+    
+    elements.saveBtn?.addEventListener("click", () => {
+      try {
+        saveToLocalStorage();
+      } catch (e) {
+        console.error("🔴 Error in saveBtn:", e);
+      }
+    });
+    
+    elements.loadBtn?.addEventListener("click", () => {
+      try {
+        loadFromLocalStorage();
+        alert("✓ Загружено из localStorage");
+      } catch (e) {
+        console.error("🔴 Error in loadBtn:", e);
+      }
+    });
+    
+    elements.clearBtn?.addEventListener("click", () => {
+      try {
+        if (confirm("Очистить все данные?")) {
+          localStorage.removeItem("disciplineReport");
+          elements.tasksInput.value = "";
+          parsed = [];
+          elements.thoughtsInput.value = "";
+          elements.stateSelect.value = "WORK";
+          renderTasks();
+          renderMeta();
+        }
+      } catch (e) {
+        console.error("🔴 Error in clearBtn:", e);
+      }
+    });
+    
+    elements.sampleBtn?.addEventListener("click", () => {
+      try {
+        console.log("🔵 sampleBtn clicked - loading sample data");
+        const sampleText = `Здоровье
 ———————————————
 + Упражнения — 30 мин I[0.01] S[0.02] W[0.03] E[0] C[0] H[0.05] ST[1] $[0]
 + Пить воду — 2л I[0] S[0] W[0.01] E[0] C[0] H[0.02] ST[1] $[0]
@@ -938,91 +1638,160 @@ document.addEventListener("DOMContentLoaded", async () => {
 Работа
 ———————————————
 + Основной проект — 4 часа I[0.05] S[0.00] W[0.01] E[0.00] C[0.02] H[0.00] ST[2] $[50]`;
-    
-    elements.tasksInput.value = sampleText;
-    elements.thoughtsInput.value = "Хороший продуктивный день!";
-    parseTextInput();
-    alert("✓ Пример загружен");
-  });
-  elements.addFromCatalogBtn?.addEventListener("click", () => {
-    updateCatalogModal();
-    showModal("habitCatalogModal");
-  });
-  elements.loadFromDBBtn?.addEventListener("click", loadDatesFromDB);
-  elements.saveToDBBtn?.addEventListener("click", saveToDatabase);
-  elements.makeReportBtn?.addEventListener("click", updateReportOutput);
-  elements.copyReport?.addEventListener("click", () => {
-    navigator.clipboard.writeText(elements.reportOutput.textContent);
-    alert("📋 Скопировано в буфер!");
-  });
-  elements.downloadReport?.addEventListener("click", () => {
-    const text = elements.reportOutput.textContent;
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `report_${toISODate(new Date())}.txt`;
-    a.click();
-  });
-
-  elements.frictionIndex?.addEventListener("change", () => {
-    elements.frictionValue.textContent = elements.frictionIndex.value;
-    renderMeta();
-  });
-
-  document.getElementById("saveEditBtn")?.addEventListener("click", async () => {
-    const idx = parseInt(document.getElementById("editIndex").value);
-    const item = parsed[idx];
-    if (item && item.type === "habit") {
-      const oldName = item.name;
-      const oldCategory = item.category;
-      
-      item.name = document.getElementById("editName").value;
-      item.category = document.getElementById("editCategory").value;
-      item.quantity = parseFloat(document.getElementById("editQuantity").value) || null;
-      item.unit = document.getElementById("editUnit").value;
-      item.success = document.getElementById("editSuccess").value === "1";
-      
-      const catalogHabit = habitsCatalog.find(h => h.name === oldName && h.category === oldCategory);
-      if (catalogHabit) {
-        try {
-          await fetchAPI(`/api/habits/update/${catalogHabit.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: item.name,
-              category: item.category,
-              default_quantity: item.quantity,
-              unit: item.unit,
-            })
-          });
-          await loadHabitsCatalog();
-        } catch (e) {
-          console.warn("Error updating habit:", e);
+        
+        console.log("🔵 sampleBtn - setting tasksInput value");
+        if (!elements.tasksInput) {
+          console.error("🔴 tasksInput элемент не найден!");
+          alert("❌ Ошибка: tasksInput элемент не найден");
+          return;
         }
+        
+        elements.tasksInput.value = sampleText;
+        console.log("🔵 sampleBtn - setting thoughtsInput value");
+        elements.thoughtsInput.value = "Хороший продуктивный день!";
+        
+        console.log("🔵 sampleBtn - calling parseTextInput()");
+        parseTextInput();
+        
+        console.log("🔵 sampleBtn - success, showing alert");
+        alert("✓ Пример загружен");
+      } catch (e) {
+        console.error("🔴 Error in sampleBtn:", e);
+        console.error("🔴 Stack:", e.stack);
+        alert("❌ Ошибка при загрузке примера: " + e.message);
       }
-      
-      renderTasks();
-      renderMeta();
-      hideModal("habitEditModal");
+    });
+    
+    elements.addFromCatalogBtn?.addEventListener("click", () => {
+      try {
+        updateCatalogModal();
+        showModal("habitCatalogModal");
+      } catch (e) {
+        console.error("🔴 Error in addFromCatalogBtn:", e);
+      }
+    });
+
+    elements.dbDateSelect?.addEventListener("change", () => {
+      try {
+        console.log("🔵 dbDateSelect changed, calling loadDayFromDB");
+        loadDayFromDB();
+      } catch (e) {
+        console.error("🔴 Error in dbDateSelect change:", e);
+        alert("❌ Ошибка: " + e.message);
+      }
+    });
+    
+    elements.saveToDBBtn?.addEventListener("click", () => {
+      try {
+        saveToDatabase();
+      } catch (e) {
+        console.error("🔴 Error in saveToDBBtn:", e);
+      }
+    });
+    
+    elements.makeReportBtn?.addEventListener("click", () => {
+      try {
+        updateReportOutput();
+      } catch (e) {
+        console.error("🔴 Error in makeReportBtn:", e);
+      }
+    });
+    
+    elements.copyReport?.addEventListener("click", () => {
+      try {
+        navigator.clipboard.writeText(elements.reportOutput.textContent);
+        alert("📋 Скопировано в буфер!");
+      } catch (e) {
+        console.error("🔴 Error in copyReport:", e);
+      }
+    });
+    
+    elements.downloadReport?.addEventListener("click", () => {
+      try {
+        const text = elements.reportOutput.textContent;
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `report_${toISODate(new Date())}.txt`;
+        a.click();
+      } catch (e) {
+        console.error("🔴 Error in downloadReport:", e);
+      }
+    });
+
+    elements.frictionIndex?.addEventListener("change", () => {
+      try {
+        elements.frictionValue.textContent = elements.frictionIndex.value;
+        renderMeta();
+      } catch (e) {
+        console.error("🔴 Error in frictionIndex change:", e);
+      }
+    });
+
+    document.getElementById("saveEditBtn")?.addEventListener("click", async () => {
+      const idx = parseInt(document.getElementById("editIndex").value);
+      const item = parsed[idx];
+      if (item && item.type === "habit") {
+        const oldName = item.name;
+        const oldCategory = item.category;
+        
+        item.name = document.getElementById("editName").value;
+        item.category = document.getElementById("editCategory").value;
+        item.quantity = parseFloat(document.getElementById("editQuantity").value) || null;
+        item.unit = document.getElementById("editUnit").value;
+        item.success = document.getElementById("editSuccess").value === "1";
+        
+        const catalogHabit = habitsCatalog.find(h => h.name === oldName && h.category === oldCategory);
+        if (catalogHabit) {
+          try {
+            await fetchAPI(`/api/habits/update/${catalogHabit.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: item.name,
+                category: item.category,
+                default_quantity: item.quantity,
+                unit: item.unit,
+              })
+            });
+            await loadHabitsCatalog();
+          } catch (e) {
+            console.warn("Error updating habit:", e);
+          }
+        }
+        
+        renderTasks();
+        renderMeta();
+        hideModal("habitEditModal");
+      }
+    });
+
+    document.getElementById("habitSearch")?.addEventListener("input", filterHabits);
+
+    console.log("🔵 Загрузка начальных данных...");
+    await loadPeriodStats('all');
+    await loadAllLinks();
+    await loadBiometricCatalogs();      // +++ добавить
+    await loadFinanceCategories();       // +++ добавить
+    
+    const today = toISODate(new Date());
+    if (!elements.reportDateEl.value) {
+      elements.reportDateEl.value = today;
+      console.log("🔵 Установлена дата отчёта:", today);
     }
-  });
-
-  document.getElementById("habitSearch")?.addEventListener("input", filterHabits);
-
-  await loadHabitsCatalog();
-  await loadCombinations();
-  await loadStreaks();
-  await loadDatesFromDB();
-  await loadPeriodStats('all');
-  
-  const today = toISODate(new Date());
-  if (!elements.reportDateEl.value) {
-    elements.reportDateEl.value = today;
+    
+    renderMeta();
+    
+    console.log("✅ ✅ ✅ ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА УСПЕШНО ✅ ✅ ✅");
+    console.log("ℹ️ Можете использовать все кнопки и функции!");
+    console.log("ℹ️ Текущая дата отчёта:", elements.reportDateEl.value);
+  } catch (error) {
+    console.error("🔴 🔴 🔴 КРИТИЧЕСКАЯ ОШИБКА ПРИ ИНИЦИАЛИЗАЦИИ 🔴 🔴 🔴:", error);
+    console.error("🔴 Stack:", error.stack);
+    alert("❌ КРИТИЧЕСКАЯ ОШИБКА: " + error.message + "\n\nЧто-то очень серьёзное произошло. Смотрите консоль (F12) для деталей.");
   }
-  
-  renderMeta();
-} );
+})();
 
 
 

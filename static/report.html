@@ -1,4 +1,5 @@
-﻿<!doctype html>
+﻿```html
+<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
@@ -7,134 +8,133 @@
   <title>Генератор отчёта дисциплины</title>
 </head>
 <body>
-  <nav class="top-nav">
-    <a href="/">Главная</a>
-    <a href="/report">Отчёт</a>
-    <a href="/planner">Планировщик</a>
-  </nav>
+  <div data-include="/static/includes/header.html"></div>
+  
+  <div class="main-content">
+    <h1>Генератор отчёта дисциплины</h1>
 
-  <h1>Генератор отчёта дисциплины</h1>
+    <p class="small">Формат: +/- Название_привычки — количество единица I[0.00] S[0.01] W[0.01] E[0.00] C[0.01] H[0.01] ST[1] $[0]<br>Составная: * Название: (подзадачи с + или -)</p>
 
-  <p class="small">Формат: +/- Название_привычки — количество единица I[0.00] S[0.01] W[0.01] E[0.00] C[0.01] H[0.01] ST[1] $[0]<br>Составная: * Название: (подзадачи с + или -)</p>
+    <div class="controls">
+      <label for="lastDay">Последний номер дня</label>
+      <input id="lastDay" name="lastDay" type="number" value="1" />
 
-  <div class="controls">
-    <label for="lastDay">Последний номер дня</label>
-    <input id="lastDay" name="lastDay" type="number" value="1" />
+      <label for="lastDate">Последняя дата</label>
+      <input id="lastDate" name="lastDate" type="date" value="" />
 
-    <label for="lastDate">Последняя дата</label>
-    <input id="lastDate" name="lastDate" type="date" value="" />
+      <label for="reportDate">Дата отчёта</label>
+      <input id="reportDate" name="reportDate" type="date" value="" />
+    </div>
 
-    <label for="reportDate">Дата отчёта</label>
-    <input id="reportDate" name="reportDate" type="date" value="" />
-  </div>
-
-  <label for="tasksInput">Список привычек/задач</label>
-  <textarea id="tasksInput" name="tasksInput" placeholder="Здоровье
+    <label for="tasksInput">Список привычек/задач</label>
+    <textarea id="tasksInput" name="tasksInput" placeholder="Здоровье
 ———————————————
 + Упражнения — 30 мин I[0.01] S[0.02] W[0.03] E[0] C[0] H[0.05] ST[1] $[0]      
 + Пить воду — 2л I[0] S[0] W[0.01] E[0] C[0] H[0.02] ST[1] $[0]"></textarea>
 
-  <div class="friction-block">
-    <label for="frictionIndex">
-      Индекс трения: <span id="frictionValue">1</span>
-    </label>
-    <input type="range" id="frictionIndex" name="frictionIndex" min="1" max="10" value="1" step="1">
-  </div>
-
-  <div class="controls">
-    <button id="parseBtn" class="primary">Разобрать и отобразить</button>       
-    <button id="loadFromDBBtn" class="primary">Загрузить из БД</button>
-    <button id="sampleBtn">📋 Пример</button>
-    <button id="addFromCatalogBtn">➕ Из справочника</button>
-    <button id="saveToDBBtn">Сохранить в БД</button>
-    <button id="saveBtn">Сохранить в localStorage</button>
-    <button id="loadBtn">Загрузить из localStorage</button>
-    <button id="clearBtn">Очистить</button>
-  </div>
-
-  <div class="meta" id="metaBox">
-    <div>Сегодня: <strong id="todayDisplay">—</strong></div>
-    <div>День #: <strong id="currentDayDisplay">—</strong></div>
-    <div class="small">Разница дней: <span id="diffDays">—</span></div>
-    <div class="small">Выполнено: <span id="completedCount">0</span> / <span id="totalCount">0</span> — <strong id="percentDone">0%</strong></div>
-
-    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
-      <div class="small">Загрузить из БД:</div>
-      <select id="dbDateSelect" style="width:100%; margin-top:6px;" onchange="loadDayFromDB()">
-        <option value="">Выберите дату</option>
-      </select>
+    <div class="friction-block">
+      <label for="frictionIndex">
+        Индекс трения: <span id="frictionValue">1</span>
+      </label>
+      <input type="range" id="frictionIndex" name="frictionIndex" min="1" max="10" value="1" step="1">
     </div>
 
-    <div class="small" style="margin-top:12px;">Сумма характеристик:</div>      
-    <div id="totalStats" class="stats-grid"></div>
-
-    <div class="small" style="margin-top:12px;">Статистика за период:</div>     
-    <div id="periodStats" class="controls" style="margin-top:4px;">
-      <button onclick="loadPeriodStats('week')" class="small">7 дн</button>     
-      <button onclick="loadPeriodStats('month')" class="small">30 дн</button>   
-      <button onclick="loadPeriodStats('all')" class="small">Все</button>       
+    <div class="controls">
+      <button id="parseBtn" class="primary">Разобрать и отобразить</button>       
+      <button id="sampleBtn">📋 Пример</button>
+      <button id="addFromCatalogBtn">➕ Из справочника</button>
+      <button id="saveToDBBtn">Сохранить в БД</button>
+      <button id="saveBtn">Сохранить в localStorage</button>
+      <button id="loadBtn">Загрузить из localStorage</button>
+      <button id="clearBtn">Очистить</button>
     </div>
-    <div id="periodStatsDisplay" class="small" style="margin-top:4px; color:#666;"></div>
-  </div>
 
-  <label for="stateSelect">Состояние дня</label>
-  <select id="stateSelect">
-    <option value="WORK">WORK — рабочий день</option>
-    <option value="VAC">VAC — выходной</option>
-    <option value="SICK">SICK — болезнь</option>
-    <option value="OTHER">OTHER — другое</option>
-  </select>
+    <div class="meta" id="metaBox">
+      <div>Сегодня: <strong id="todayDisplay">—</strong></div>
+      <div>День #: <strong id="currentDayDisplay">—</strong></div>
+      <div class="small">Разница дней: <span id="diffDays">—</span></div>
+      <div class="small">Выполнено: <span id="completedCount">0</span> / <span id="totalCount">0</span> — <strong id="percentDone">0%</strong></div>
 
-  <label for="thoughtsInput">Комментарий дня (опционально)</label>
-  <textarea id="thoughtsInput" name="thoughtsInput" placeholder="Короткие заметки..." style="height:60px;"></textarea>
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
+        <div class="small">Загрузить из БД:</div>
+        <select id="dbDateSelect" style="width:100%; margin-top:6px;">
+          <option value="">Выберите дату</option>
+        </select>
+      </div>
 
-  <div id="tasksList" style="margin-top: 16px;"></div>
+      <div class="small" style="margin-top:12px;">Сумма характеристик:</div>      
+      <div id="totalStats" class="stats-grid"></div>
 
-  <div class="footer-actions">
-    <button id="makeReport">Сформировать отчёт</button>
-    <button id="copyReport">Копировать</button>
-    <button id="downloadReport">Скачать TXT</button>
-  </div>
+      <div class="small" style="margin-top:12px;">Статистика за период:</div>     
+      <div id="periodStats" class="controls" style="margin-top:4px;">
+        <button onclick="loadPeriodStats('week')" class="small">7 дн</button>     
+        <button onclick="loadPeriodStats('month')" class="small">30 дн</button>   
+        <button onclick="loadPeriodStats('all')" class="small">Все</button>       
+      </div>
+      <div id="periodStatsDisplay" class="small" style="margin-top:4px; color:#666;"></div>
+    </div>
 
-  <div id="reportOutput" class="reportOut"></div>
+    <label for="stateSelect">Состояние дня</label>
+    <select id="stateSelect">
+      <option value="WORK">WORK — рабочий день</option>
+      <option value="VAC">VAC — выходной</option>
+      <option value="SICK">SICK — болезнь</option>
+      <option value="OTHER">OTHER — другое</option>
+    </select>
 
-  <!-- Модал: привычки из справочника -->
-  <div id="habitCatalogModal" class="modal">
-    <div class="modal-content">
-      <h3>Добавить привычку из справочника</h3>
-      <input type="text" id="habitSearch" placeholder="Поиск..." style="width:100%; margin-bottom:12px;" onkeyup="filterHabits()">
-      <div id="habitCatalogList" style="max-height: 300px; overflow-y: auto;"></div>
-      <div style="margin-top:12px; text-align:right;">
-        <button onclick="hideModal('habitCatalogModal')">Закрыть</button>       
+    <label for="thoughtsInput">Комментарий дня (опционально)</label>
+    <textarea id="thoughtsInput" name="thoughtsInput" placeholder="Короткие заметки..." style="height:60px;"></textarea>
+
+    <div id="tasksList" style="margin-top: 16px;"></div>
+
+    <div class="footer-actions">
+      <button id="makeReport">Сформировать отчёт</button>
+      <button id="copyReport">Копировать</button>
+      <button id="downloadReport">Скачать TXT</button>
+    </div>
+
+    <div id="reportOutput" class="reportOut"></div>
+
+    <!-- Модал: привычки из справочника -->
+    <div id="habitCatalogModal" class="modal">
+      <div class="modal-content">
+        <h3>Добавить привычку из справочника</h3>
+        <input type="text" id="habitSearch" placeholder="Поиск..." style="width:100%; margin-bottom:12px;" onkeyup="filterHabits()">
+        <div id="habitCatalogList" style="max-height: 300px; overflow-y: auto;"></div>
+        <div style="margin-top:12px; text-align:right;">
+          <button onclick="hideModal('habitCatalogModal')">Закрыть</button>       
+        </div>
+      </div>
+    </div>
+
+    <!-- Модал: редактирование привычки -->
+    <div id="habitEditModal" class="modal">
+      <div class="modal-content">
+        <h3 style="margin-top:0">Редактировать привычку</h3>
+        <input type="hidden" id="editIndex" />
+        <label for="editName">Название</label>
+        <input id="editName" type="text" />
+        <label for="editCategory">Категория</label>
+        <input id="editCategory" type="text" />
+        <label for="editQuantity">Кол-во</label>
+        <input id="editQuantity" type="text" />
+        <label for="editUnit">Единица</label>
+        <input id="editUnit" type="text" />
+        <label for="editSuccess">Статус</label>
+        <select id="editSuccess">
+          <option value="1">✓ Выполнено</option>
+          <option value="0">✗ Не выполнено</option>
+        </select>
+        <div style="margin-top:12px; text-align:right;">
+          <button onclick="hideModal('habitEditModal')">Отмена</button>
+          <button id="saveEditBtn">Сохранить</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Модал: редактирование привычки -->
-  <div id="habitEditModal" class="modal">
-    <div class="modal-content">
-      <h3 style="margin-top:0">Редактировать привычку</h3>
-      <input type="hidden" id="editIndex" />
-      <label for="editName">Название</label>
-      <input id="editName" type="text" />
-      <label for="editCategory">Категория</label>
-      <input id="editCategory" type="text" />
-      <label for="editQuantity">Кол-во</label>
-      <input id="editQuantity" type="text" />
-      <label for="editUnit">Единица</label>
-      <input id="editUnit" type="text" />
-      <label for="editSuccess">Статус</label>
-      <select id="editSuccess">
-        <option value="1">✓ Выполнено</option>
-        <option value="0">✗ Не выполнено</option>
-      </select>
-      <div style="margin-top:12px; text-align:right;">
-        <button onclick="hideModal('habitEditModal')">Отмена</button>
-        <button id="saveEditBtn">Сохранить</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/static/report.js"></script>
+  <script src="/static/include-loader.js" data-scripts="/static/report.js"></script>
+  <div data-include="/static/includes/footer.html"></div>
 </body>
 </html>
+```

@@ -102,6 +102,10 @@ class Database:
             return entity_cls.from_row(dict(row))
         return None
 
+    def commit(self):
+        """No-op: each execute already commits."""
+        pass
+
     def list(self, entity_cls, filters=None, order_by=None, limit=None, offset=None):
         """Возвращает список сущностей с фильтрацией."""
         conn = self.get_conn()
@@ -142,3 +146,27 @@ class Database:
         count = cursor.fetchone()[0]
         conn.close()
         return count
+
+    def execute(self, sql, params=None):
+        """Выполняет произвольный SQL запрос."""
+        conn = self.get_conn()
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        conn.commit()
+        conn.close()
+
+    def query(self, sql, params=None):
+        """Выполняет SELECT и возвращает список строк как словари."""
+        conn = self.get_conn()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
